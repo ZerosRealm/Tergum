@@ -1,0 +1,187 @@
+$( document ).ready(function() {
+    cache.currentPage = "backups"
+});
+
+function gotBackups(data) {
+    let list = $("#backups table tbody")
+    list.empty()
+    data.backups.forEach(backup => {
+        let item = $(`<tr>
+                        <th scope="row">`+backup.ID+`</th>
+                        <td>`+backup.Source+`</td>
+                        <td>`+backup.Schedule+`</td>
+                        <td>
+                            <button class="btn btn-danger float-end ms-1" onclick="deleteBackup(`+backup.ID+`)">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
+                            </button>
+                            <button class="btn btn-link float-end ms-1" onclick="editBackup(`+backup.ID+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+                            </button>
+                        </td>
+                    </tr>`)
+
+        list.append(item)
+    });
+}
+
+function newBackup() {
+    let repo = $("#backups .card select[name='repo']").val()
+    let source = $("#backups .card input[name='source']").val()
+    let schedule = $("#backups .card input[name='schedule']").val()
+
+    if (repo == -1) {
+        showError("You need to select a repository.")
+        return
+    }
+
+    var msg = {
+        type: "newbackup",
+        target: parseInt(repo),
+        source: source,
+        schedule: schedule,
+    };
+    webSocket.send(JSON.stringify(msg));
+}
+
+function prepareNewBackup() {
+    let selectElem = $("#backups select[name='repo']")
+    selectElem.empty()
+
+    let newOption = $(`<option value="-1">None</option>`)
+    selectElem.append(newOption)
+
+    cache.repos.forEach(repo => {
+        let newOption = $(`<option value="`+repo.ID+`">`+repo.Name+`</option>`)
+        selectElem.append(newOption)
+    });
+}
+
+function editBackup(id) {
+    $("#editBackup input").val("")
+
+    let idInput = $("#editBackup input[name='id']")
+    let repo = $("#editBackup select[name='repo']")
+    let source = $("#editBackup input[name='source']")
+    let schedule = $("#editBackup input[name='schedule']")
+
+    let data = null
+    cache.backups.forEach(backup => {
+        if (backup.ID == id) {
+            data = backup
+        }
+    });
+
+    if (data == null) {
+        showError("Cannot edit - no backup with that ID.")
+        return
+    }
+
+    let selectElem = $("#editBackup select[name='repo']")
+    selectElem.empty()
+
+    cache.repos.forEach(repo => {
+        if (repo.ID == data.Target) {
+            let newOption = $(`<option value="`+repo.ID+`" selected>`+repo.Name+`</option>`)
+            selectElem.append(newOption)
+        } else {
+            let newOption = $(`<option value="`+repo.ID+`">`+repo.Name+`</option>`)
+            selectElem.append(newOption)
+        }
+    });
+
+    selectElem = $("#editBackup select[name='search']")
+    selectElem.empty()
+
+    newOption = $(`<option value="-1">None</option>`)
+    selectElem.append(newOption)
+
+    cache.agents.forEach(agent => {
+        let newOption = $(`<option value="`+agent.ID+`">`+agent.Name+`</option>`)
+        selectElem.append(newOption)
+    });
+
+    $("#editBackup .subscribers").empty()
+
+    if (cache.subscribers[id]) {
+        cache.subscribers[id].forEach(sub => {
+            let newElem = $(`<div class="subscriber">
+                <input name="id" type="hidden" value="`+sub.ID+`"/>
+                <button type="button" class="btn btn-dark">`+sub.Name+`</button>
+                <button id="btn-delete" type="button" class="btn btn-danger" onclick="$(this.parentElement).remove()">X</button>
+            </div>`)
+            $("#editBackup .subscribers").append(newElem)
+        });
+    }
+
+    idInput.val(data.ID)
+    // repo.val(data.Target)
+    source.val(data.Source)
+    schedule.val(data.Schedule)
+}
+
+function addSubscriber() {
+    let id = $("#editBackup select[name='search']").val()
+
+    if (id == -1)  {
+        return
+    }
+
+    if (($(`#editBackup .subscriber input[name="id"][value="`+id+`"]`)).length >= 1) {
+        return
+    }
+
+    let foundAgent = null
+    cache.agents.forEach(agent => {
+        if (agent.ID == id) {
+            foundAgent = agent
+        }
+    });
+
+    if (foundAgent == null) {
+        showError("Can't add subscriber - no agent with that ID.")
+        return
+    }
+
+    let newElem = $(`<div class="subscriber">
+            <input name="id" type="hidden" value="`+foundAgent.ID+`"/>
+            <button type="button" class="btn btn-dark">`+foundAgent.Name+`</button>
+            <button id="btn-delete" type="button" class="btn btn-danger" onclick="$(this.parentElement).remove()">X</button>
+        </div>`)
+    $("#editBackup .subscribers").append(newElem)
+}
+
+function updateBackup() {
+    let id = $("#editBackup input[name='id']").val()
+    let repo = $("#editBackup select[name='repo']").val()
+    let source = $("#editBackup input[name='source']").val()
+    let schedule = $("#editBackup input[name='schedule']").val()
+
+    var msg = {
+        type: "updatebackup",
+        id: parseInt(id),
+        target: parseInt(repo),
+        source: source,
+        schedule: schedule,
+    };
+    webSocket.send(JSON.stringify(msg));
+
+    let subscribers = []
+    $(`#editBackup .subscriber input[name="id"]`).each(function() {
+        subscribers.push(parseInt($(this).val()))
+    });
+
+    msg = {
+        type: "updatesubscribers",
+        backup: parseInt(id),
+        agents: subscribers
+    };
+    webSocket.send(JSON.stringify(msg));
+}
+
+function deleteBackup(id) {
+    var msg = {
+        type: "deletebackup",
+        id: parseInt(id),
+    };
+    webSocket.send(JSON.stringify(msg));
+}
