@@ -1,12 +1,5 @@
 package types
 
-// Job to send to an agent.
-type Job struct {
-	ID     string
-	Backup *Backup
-	Agent  *Agent
-}
-
 // Repo for storing repository information.
 type Repo struct {
 	ID       int
@@ -35,6 +28,23 @@ type Agent struct {
 
 // JobPacket to send to agents.
 type JobPacket struct {
-	Job  Job
-	Repo Repo
+	ID    string
+	Type  string
+	Repo  *Repo
+	Agent *Agent
+
+	Job []byte
+}
+
+// BackupJob to send to an agent.
+type BackupJob struct {
+	Backup *Backup
+}
+
+// RestoreJob to send to an agent.
+type RestoreJob struct {
+	Snapshot string
+	Target   string
+	Include  string
+	Exclude  string
 }

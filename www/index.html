@@ -10,6 +10,7 @@
         <script src="/js/main.js"></script>
         
         <link href="/css/bootstrap.css" rel="stylesheet">
+        <link href="/css/icons/bootstrap-icons.css" rel="stylesheet">
         <link href="/css/main.css" rel="stylesheet">
     </head>
     <body>
@@ -31,10 +32,10 @@
                                     <input type="hidden" name="id">
                                     <label class="form-label">Repo</label>
                                     <select name="repo" class="searchbox" style="width: 100%;""></select>
-
+                                    <br>
                                     <label class="form-label">Source</label>
                                     <input type="text" class="form-control" name="source" placeholder="source">
-
+                                    <br>
                                     <label class="form-label">Schdule</label>
                                     <input type="text" class="form-control" name="schedule" placeholder="* * * * *">
                                     <br>
@@ -60,10 +61,10 @@
                             <label class="form-label">Repo</label>
                             <select name="repo" class="searchbox" style="width: 100%;""></select>
 
-                            <label class="form-label">Source</label>
+                            <label class="form-label mt-3">Source</label>
                             <input type="text" class="form-control" name="source" placeholder="source">
-
-                            <label class="form-label">Schdule</label>
+                            
+                            <label class="form-label mt-3">Schdule</label>
                             <input type="text" class="form-control" name="schedule" placeholder="* * * * *">
 
                             <button class="btn btn-primary mt-3" onclick="newBackup()" data-bs-toggle="collapse" data-bs-target="#newBackup" type="button">Save</button>
@@ -99,7 +100,7 @@
 
                                     <label class="form-label">Name</label>
                                     <input type="text" class="form-control" name="name" placeholder="display name">
-
+                                    <br>
                                     <label class="form-label">Repo</label>
                                     <input type="text" class="form-control" name="repo" placeholder="repository">
                                     <span><i><b>Note:</b> might be the whole connection string, eg. sftp:user@host:/srv/restic-repo</i></span>
@@ -107,7 +108,7 @@
 
                                     <label class="form-label mt-3">Password</label>
                                     <input type="text" class="form-control" name="password" placeholder="repository password">
-
+                                    <br>
                                     <label class="form-label">Settings</label>
                                     <textarea class="form-control" name="settings" rows="3"></textarea>
                                     <span><i><b>Note:</b> this is for extra environment variables, eg. for S3 settings</i></span>
@@ -147,6 +148,42 @@
                         </div>
                     </div>
 
+                    <!-- Restore snapshot -->
+                    <div class="modal fade" id="restoreSnapshot" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+                        <button class="invisible btn btn-primary float-end" data-bs-toggle="modal" data-bs-target="#restoreSnapshot">Open</button>
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Restore snapshot</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <input type="hidden" name="repo">
+
+                                    <label class="form-label">Snapshot</label>
+                                    <input type="text" class="form-control" name="id" disabled>
+
+                                    <label class="form-label mt-3">Paths</label>
+                                    <input type="text" class="form-control" name="paths" disabled>
+
+                                    <label class="form-label mt-3">Agent</label>
+                                    <select name="agent" class="searchbox" style="width: 100%;""></select>
+
+                                    <label class="form-label mt-3">Target</label>
+                                    <input type="text" class="form-control" name="target">
+
+                                    <label class="form-label mt-3">Include</label>
+                                    <input type="text" class="form-control" name="include">
+
+                                    <label class="form-label mt-3">Exclude</label>
+                                    <input type="text" class="form-control" name="exclude">
+                                    
+                                    <button class="btn btn-primary mt-3" onclick="restoreSnapshot()" data-bs-dismiss="modal" type="button">Save</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- New -->
                     <div class="new">
                         <h2>Repos</h2>
@@ -157,15 +194,15 @@
                             <div class="card card-body">
                                 <label class="form-label">Name</label>
                                 <input type="text" class="form-control" name="name" placeholder="display name">
-
-                                <label class="form-label">Repo</label>
+                                
+                                <label class="form-label mt-3">Repo</label>
                                 <input type="text" class="form-control" name="repo" placeholder="repository">
                                 <span><i><b>Note:</b> might be the whole connection string, eg. sftp:user@host:/srv/restic-repo</i></span>
 
                                 <label class="form-label mt-3">Password</label>
                                 <input type="text" class="form-control" name="password" placeholder="repository password">
 
-                                <label class="form-label">Settings</label>
+                                <label class="form-label mt-3">Settings</label>
                                 <textarea class="form-control" name="settings" rows="3"></textarea>
                                 <span><i><b>Note:</b> this is for extra environment variables, eg. for S3 settings</i></span>
                                 
@@ -202,12 +239,16 @@
                                     <input type="hidden" name="id">
                                     <label class="form-label">Name</label>
                                     <input type="text" class="form-control" name="name" placeholder="eg. hostname">
+                                    <br>
                                     <label class="form-label">IP</label>
                                     <input type="text" class="form-control" name="ip" placeholder="IP address">
+                                    <br>
                                     <label class="form-label">Port</label>
                                     <input type="text" class="form-control" name="port" placeholder="port">
+                                    <br>
                                     <label class="form-label">PSK</label>
                                     <input type="text" class="form-control" name="psk" placeholder="PSK">
+                                    
                                     <button class="btn btn-primary mt-3" onclick="updateAgent()" data-bs-dismiss="modal" type="button">Update</button>
                                 </div>
                             </div>
@@ -220,14 +261,18 @@
                     </button>
                     <div class="collapse mt-3" id="newAgent">
                         <div class="card card-body">
-                            <label class="form-label">Name</label>
+                            <label class="form-label mt-3">Name</label>
                             <input type="text" class="form-control" name="name" placeholder="eg. hostname">
-                            <label class="form-label">IP</label>
+
+                            <label class="form-label mt-3">IP</label>
                             <input type="text" class="form-control" name="ip" placeholder="IP address">
-                            <label class="form-label">Port</label>
+
+                            <label class="form-label mt-3">Port</label>
                             <input type="text" class="form-control" name="port" placeholder="port">
-                            <label class="form-label">PSK</label>
+
+                            <label class="form-label mt-3">PSK</label>
                             <input type="text" class="form-control" name="psk" placeholder="PSK">
+
                             <button class="btn btn-primary mt-3" onclick="newAgent()" data-bs-toggle="collapse" data-bs-target="#newAgent" type="button">Save</button>
                         </div>
                     </div>

@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bytes"
+	"encoding/gob"
 	"log"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
 	"zerosrealm.xyz/tergum/internal/types"
@@ -25,11 +28,40 @@ func buildSchedules() {
 func scheduleBackup(schedule *schedule) {
 	for _, agent := range savedData.BackupSubscribers[schedule.Backup.ID] {
 		id := xid.New().String()
-		job := types.Job{
-			ID:     id,
-			Backup: schedule.Backup,
-			Agent:  agent,
+
+		job := types.JobPacket{}
+		job.ID = id
+		job.Type = "backup"
+		job.Agent = agent
+
+		var foundRepo *types.Repo
+		for _, repo := range savedData.Repos {
+			if repo.ID == schedule.Backup.Target {
+				foundRepo = repo
+				break
+			}
 		}
+
+		if foundRepo.ID == 0 {
+			log.Println("No repo found with ID defined in backup target")
+			break
+		}
+		job.Repo = foundRepo
+
+		backupJob := types.BackupJob{
+			Backup: schedule.Backup,
+		}
+
+		buf := bytes.NewBuffer(nil)
+		enc := gob.NewEncoder(buf)
+		err := enc.Encode(backupJob)
+
+		if err != nil {
+			spew.Dump(backupJob)
+			panic(err)
+		}
+		job.Job = buf.Bytes()
+
 		log.Printf("enqueuing job %s for %s\n", id, agent.Name)
 		ok := enqueue(job)
 		if !ok {

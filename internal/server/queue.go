@@ -10,9 +10,9 @@ import (
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
-var jobQueue = make(chan types.Job, 100)
+var jobQueue = make(chan types.JobPacket, 100)
 
-func enqueue(job types.Job) bool {
+func enqueue(job types.JobPacket) bool {
 	select {
 	case jobQueue <- job:
 		return true

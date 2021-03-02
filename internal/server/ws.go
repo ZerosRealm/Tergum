@@ -2,9 +2,13 @@ package server
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"log"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/rs/xid"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
@@ -721,6 +725,7 @@ func getSnapshots(data map[string]interface{}) ([]byte, error) {
 
 	resp := make(map[string]interface{})
 	resp["type"] = "getsnapshots"
+	resp["repo"] = repoID
 	resp["snapshots"] = snapshots
 
 	var buf = bytes.NewBufferString("")
@@ -731,4 +736,128 @@ func getSnapshots(data map[string]interface{}) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func restoreSnapshot(data map[string]interface{}) ([]byte, error) {
+	var repoID int
+	switch v := data["repo"].(type) {
+	case int:
+		repoID = v
+	case float32:
+		repoID = int(v)
+	case float64:
+		repoID = int(v)
+	default:
+		msg := "repo id was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var foundRepo *types.Repo
+	for _, repo := range savedData.Repos {
+		if repo.ID == repoID {
+			foundRepo = repo
+			break
+		}
+	}
+
+	if foundRepo == nil {
+		msg := "no repo was found with that id"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var agentID int
+	switch v := data["agent"].(type) {
+	case int:
+		agentID = v
+	case float32:
+		agentID = int(v)
+	case float64:
+		agentID = int(v)
+	default:
+		msg := "agent id was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var foundAgent *types.Agent
+	for _, agent := range savedData.Agents {
+		if agent.ID == agentID {
+			foundAgent = agent
+			break
+		}
+	}
+
+	if foundAgent == nil {
+		msg := "no agent was found with that id"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var snapshot string
+	switch v := data["snapshot"].(type) {
+	case string:
+		snapshot = v
+	default:
+		msg := "snapshot was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var target string
+	switch v := data["target"].(type) {
+	case string:
+		target = v
+	default:
+		msg := "target was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var include string
+	switch v := data["include"].(type) {
+	case string:
+		include = v
+	default:
+		msg := "include was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var exclude string
+	switch v := data["exclude"].(type) {
+	case string:
+		exclude = v
+	default:
+		msg := "exclude was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	id := xid.New().String()
+
+	job := types.JobPacket{}
+	job.ID = id
+	job.Type = "restore"
+	job.Agent = foundAgent
+	job.Repo = foundRepo
+
+	restoreJob := types.RestoreJob{
+		Snapshot: snapshot,
+		Target:   target,
+		Include:  include,
+		Exclude:  exclude,
+	}
+
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(restoreJob)
+
+	if err != nil {
+		spew.Dump(restoreJob)
+		panic(err)
+	}
+	job.Job = buf.Bytes()
+
+	log.Printf("enqueuing job %s for %s\n", id, foundAgent.Name)
+	ok := enqueue(job)
+	if !ok {
+		msg := fmt.Sprintf("job %s could not be enqueued\n", id)
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	return encodeMessage("Restore job sent to agent.", "success"), nil
 }

@@ -3,7 +3,11 @@ var cache = {
     repos: [],
     backups: [],
     agents: [],
-    subscribers: []
+    subscribers: [],
+    snapshots: {
+        repo: 0,
+        data: []
+    }
 }
 
 $( document ).ready(function() {
@@ -69,7 +73,7 @@ webSocket.onmessage = function (event) {
             break
         case "getsnapshots":
             console.log(data)
-            gotSnapshots(data.snapshots)
+            gotSnapshots(data)
             break
         case "error":
             showError(data.message)
@@ -91,7 +95,14 @@ function gotBackups(data) {
                         <th scope="row">`+backup.ID+`</th>
                         <td>`+backup.Source+`</td>
                         <td>`+backup.Schedule+`</td>
-                        <td><button class="btn btn-danger float-end ms-1" onclick="deleteBackup(`+backup.ID+`)">X</button><button class="btn btn-primary float-end" onclick="editBackup(`+backup.ID+`)" data-bs-toggle="modal" data-bs-target="#editBackup">Edit</button></td>
+                        <td>
+                            <button class="btn btn-danger float-end ms-1" onclick="deleteBackup(`+backup.ID+`)">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
+                            </button>
+                            <button class="btn btn-link float-end ms-1" onclick="editBackup(`+backup.ID+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+                            </button>
+                        </td>
                     </tr>`)
 
         list.append(item)
@@ -257,7 +268,14 @@ function gotAgents(data) {
                         <td>`+agent.Name+`</td>
                         <td>`+agent.IP+`</td>
                         <td>`+agent.Port+`</td>
-                        <td><button class="btn btn-danger float-end ms-1" onclick="deleteAgent(`+agent.ID+`)">X</button><button class="btn btn-primary float-end" onclick="editAgent(`+agent.ID+`)" data-bs-toggle="modal" data-bs-target="#editAgent">Edit</button></td>
+                        <td>
+                            <button class="btn btn-danger float-end ms-1" onclick="deleteAgent(`+agent.ID+`)">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
+                            </button>
+                            <button class="btn btn-link float-end ms-1" onclick="editAgent(`+agent.ID+`)" data-bs-toggle="modal" data-bs-target="#editAgent">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+                            </button>
+                        </td>
                     </tr>`)
 
         table.append(item)
@@ -346,9 +364,15 @@ function gotRepos(data) {
                         <td>`+repo.Name+`</td>
                         <td>`+repo.Repo+`</td>
                         <td>
-                            <button class="btn btn-danger float-end ms-1" onclick="deleteRepo(`+repo.ID+`)">X</button>
-                            <button class="btn btn-primary float-end ms-1" onclick="editRepo(`+repo.ID+`)" data-bs-toggle="modal" data-bs-target="#editRepo">Edit</button>
-                            <button class="btn btn-primary float-end" onclick="getSnapshots(`+repo.ID+`)">Snapshots</button>
+                            <button class="btn btn-danger float-end ms-1" onclick="deleteRepo(`+repo.ID+`)">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
+                            </button>
+                            <button class="btn btn-link float-end ms-1" onclick="editRepo(`+repo.ID+`)" data-bs-toggle="modal" data-bs-target="#editRepo">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+                            </button>
+                            <button class="btn btn-link float-end" onclick="getSnapshots(`+repo.ID+`)">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#search"/></svg>
+                            </button>
                         </td>
                     </tr>`)
 
@@ -444,23 +468,33 @@ function getSnapshots(id) {
     webSocket.send(JSON.stringify(msg));
 }
 
-function gotSnapshots(snapshots) {
+function gotSnapshots(data) {
     let table = $("#snapshots table tbody")
     table.empty()
     
-    snapshots.forEach(snapshot => {
+    data.snapshots.forEach(snapshot => {
         let item = $(`<tr>
                         <th scope="row">`+snapshot.ID+`</th>
                         <td>`+snapshot.Time+`</td>
                         <td>`+snapshot.Host+`</td>
                         <td>`+snapshot.Tags+`</td>
                         <td>`+snapshot.Paths+`</td>
-                        <td></td>
+                        <td>
+                            <button class="btn btn-danger float-end ms-1" onclick="deleteSnapshot(`+snapshot.ID+`)">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
+                            </button>
+                            <button type="button" class="btn btn-link" onclick="prepareRestore('`+snapshot.ID+`')" data-bs-dismiss="modal">
+                                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#download"/></svg>
+                            </button>
+                        </td>
                     </tr>`)
 
         table.append(item)
     });
-    $(`#snapshots button[data-bs-target="#snapshots"]`).click()
+    $(`#snapshots button[data-bs-toggle="modal"][data-bs-target="#snapshots"]`).click()
+
+    cache.snapshots.repo = data.repo
+    cache.snapshots.data = data.snapshots
 }
 
 function prepareNewBackup() {
@@ -474,4 +508,65 @@ function prepareNewBackup() {
         let newOption = $(`<option value="`+repo.ID+`">`+repo.Name+`</option>`)
         selectElem.append(newOption)
     });
+}
+
+function prepareRestore(id) {
+    let snapshotID = $(`#restoreSnapshot input[name="id"]`)
+    let repoID = $(`#restoreSnapshot input[name="repo"]`)
+    let paths = $(`#restoreSnapshot input[name="paths"]`)
+    let selectAgent = $(`#restoreSnapshot select[name="agent"]`)
+    selectAgent.empty()
+
+    let data = null
+    cache.snapshots.data.forEach(snapshot => {
+        if (snapshot.ID == id) {
+            data = snapshot
+        }
+    });
+    
+    if (data == null) {
+        showError("No snapshot with that ID in cache.")
+        return
+    }
+
+    let newOption = $(`<option value="-1" selected>None</option>`)
+    selectAgent.append(newOption)
+
+    cache.agents.forEach(agent => {
+        let newOption = $(`<option value="`+agent.ID+`">`+agent.Name+`</option>`)
+        selectAgent.append(newOption)
+    });
+
+    snapshotID.val(id)
+    repoID.val(cache.snapshots.repo)
+    paths.val(data.Paths)
+
+    $(`#restoreSnapshot button[data-bs-toggle="modal"][data-bs-target="#restoreSnapshot"]`).click()
+}
+
+function restoreSnapshot() {
+    let repo = $(`#restoreSnapshot input[name="repo"]`).val()
+    let snapshot = $(`#restoreSnapshot input[name="id"]`).val()
+    let paths = $(`#restoreSnapshot input[name="paths"]`).val()
+    let agent = $(`#restoreSnapshot select[name="agent"]`).val()
+    let target = $(`#restoreSnapshot input[name="target"]`).val()
+    let include = $(`#restoreSnapshot input[name="include"]`).val()
+    let exclude = $(`#restoreSnapshot input[name="exclude"]`).val()
+
+    if (agent == -1) {
+        showError("You need to select an agent.")
+        return
+    }
+
+    var msg = {
+        type: "restoreSnapshot",
+        repo: parseInt(repo),
+        snapshot: snapshot,
+        paths: paths,
+        agent: parseInt(agent),
+        target: target,
+        include: include,
+        exclude: exclude,
+    };
+    webSocket.send(JSON.stringify(msg));
 }

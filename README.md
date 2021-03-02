@@ -1,2 +1,2 @@
 # Tergum
- UI for Restic backups
+UI for manging Restic backups across multiple servers 

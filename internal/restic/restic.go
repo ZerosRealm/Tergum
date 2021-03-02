@@ -40,6 +40,38 @@ func (r *Restic) Backup(repo, source, password string, env ...string) ([]byte, e
 	return cmd.CombinedOutput()
 }
 
+// Restore snapshot to target.
+func (r *Restic) Restore(repo, password, snapshot, target, include, exclude string, env ...string) ([]byte, error) {
+	args := []string{
+		"restore",
+		snapshot,
+		"--target",
+		target,
+		"--repo",
+		repo,
+	}
+
+	if include != "" {
+		args = append(args, "--include")
+		args = append(args, include)
+	}
+
+	if exclude != "" {
+		args = append(args, "--exclude")
+		args = append(args, exclude)
+	}
+
+	cmd := exec.Command(r.exe, args...)
+
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
+	for _, env := range env {
+		cmd.Env = append(cmd.Env, env)
+	}
+
+	return cmd.CombinedOutput()
+}
+
 // Snapshot instance from repo.
 type Snapshot struct {
 	ID    string

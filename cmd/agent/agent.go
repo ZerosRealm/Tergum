@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"zerosrealm.xyz/tergum/internal/agent/config"
 	"zerosrealm.xyz/tergum/internal/restic"
 	"zerosrealm.xyz/tergum/internal/types"
@@ -29,25 +31,58 @@ func handleConnection(c net.Conn) {
 		return
 	}
 
-	if data.Job.ID == "" {
+	if data.ID == "" {
 		log.Println("invalid job")
 		return
 	}
 
-	if data.Job.Agent.PSK != conf.PSK {
+	if data.Agent.PSK != conf.PSK {
 		log.Println("job PSK does not match")
 		return
 	}
 
-	// spew.Dump(job)
-	log.Println("running job", data.Job.ID)
-	out, err := resticExe.Backup(data.Repo.Repo, data.Job.Backup.Source, data.Repo.Password, data.Repo.Settings...)
-	if err != nil {
-		log.Println("job error:", err, "out:", string(out))
-		return
-	}
+	switch data.Type {
+	case "backup":
+		var job types.BackupJob
+		dec := gob.NewDecoder(bytes.NewReader(data.Job))
+		err := dec.Decode(&job)
 
-	log.Println("job output:", string(out))
+		if err != nil {
+			spew.Dump(data.Job)
+			panic(err)
+		}
+
+		log.Println("running job", data.ID)
+		out, err := resticExe.Backup(data.Repo.Repo, job.Backup.Source, data.Repo.Password, data.Repo.Settings...)
+		if err != nil {
+			log.Println("job error:", err, "out:", string(out))
+			return
+		}
+
+		log.Println("job output:", string(out))
+	case "restore":
+		var job types.RestoreJob
+		dec := gob.NewDecoder(bytes.NewReader(data.Job))
+		err := dec.Decode(&job)
+
+		if err != nil {
+			spew.Dump(data.Job)
+			panic(err)
+		}
+
+		log.Println("running job", data.ID)
+		out, err := resticExe.Restore(data.Repo.Repo, data.Repo.Password, job.Snapshot,
+			job.Target, job.Include, job.Exclude, data.Repo.Settings...)
+		if err != nil {
+			log.Println("job error:", err, "out:", string(out))
+			return
+		}
+
+		log.Println("job output:", string(out))
+
+	default:
+		log.Println("job", data.ID, "has unknown job type")
+	}
 }
 
 func main() {

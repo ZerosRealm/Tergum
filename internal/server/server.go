@@ -180,6 +180,13 @@ func ws(w http.ResponseWriter, req *http.Request) {
 			}
 
 			resp = msg
+		case "restoresnapshot":
+			msg, err := restoreSnapshot(data)
+			if err != nil {
+				log.Println(err)
+			}
+
+			resp = msg
 		}
 
 		err = c.WriteMessage(mt, resp)
