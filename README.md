@@ -10,9 +10,7 @@ And another project to potentially learn something is always enough to trigger m
 
 # Showcase
 Progress
-
 ![tergum-progress](https://user-images.githubusercontent.com/36984522/111437579-8d49ae80-8703-11eb-8bb7-19b3c2b25e97.gif)
-
 
 # Following development
 While the repo is public I'm still only developing on it myself, and afterwards welcome any PRs that might come.
