@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -17,6 +18,33 @@ import (
 
 var conf config.Config
 var resticExe *restic.Restic
+
+var updates = make(chan []byte, 100)
+
+func updateHandler() {
+	for {
+		select {
+		case msg := <-updates:
+			log.Println("received update!")
+
+			req, err := http.NewRequest("POST", conf.Server+"update", bytes.NewReader(msg))
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+
+			req.Header.Add("authorization", fmt.Sprintf("PSK %s", conf.PSK))
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			log.Println("Sent update, status:", resp.StatusCode)
+		default:
+		}
+	}
+}
 
 func handleConnection(c net.Conn) {
 	log.Printf("serving %s\n", c.RemoteAddr().String())
@@ -53,7 +81,7 @@ func handleConnection(c net.Conn) {
 		}
 
 		log.Println("running job", data.ID)
-		out, err := resticExe.Backup(data.Repo.Repo, job.Backup.Source, data.Repo.Password, data.Repo.Settings...)
+		out, err := resticExe.Backup(data.Repo.Repo, job.Backup.Source, data.Repo.Password, data.ID, updates, data.Repo.Settings...)
 		if err != nil {
 			log.Println("job error:", err, "out:", string(out))
 			return
@@ -97,6 +125,10 @@ func main() {
 		log.Fatal("no path to restic defined - exiting")
 	}
 
+	if conf.Server == "" {
+		log.Fatal("no server defined - exiting")
+	}
+
 	l, err := net.Listen("tcp4", fmt.Sprintf("%s:%d", conf.Listen.IP, conf.Listen.Port))
 	if err != nil {
 		fmt.Println(err)
@@ -106,6 +138,8 @@ func main() {
 	rand.Seed(time.Now().Unix())
 
 	resticExe = restic.New(conf.Restic)
+
+	go updateHandler()
 
 	for {
 		c, err := l.Accept()

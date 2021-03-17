@@ -28,6 +28,7 @@ function gotRepos(data) {
 }
 
 function newRepo() {
+    let name = $("#repos .card input[name='name']").val()
     let repo = $("#repos .card input[name='repo']").val()
     let password = $("#repos .card input[name='password']").val()
     let settings = $("#repos .card textarea[name='settings']").val().split('\n')
@@ -38,6 +39,7 @@ function newRepo() {
 
     var msg = {
         type: "newrepo",
+        name: name,
         repo: repo,
         password: password,
         settings: settings,

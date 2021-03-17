@@ -97,6 +97,7 @@ body {
     margin: 0;
     width: 100%;
     max-width: none;
+    overflow-y: auto;
 }
 
 nav {
@@ -139,13 +140,17 @@ nav ul li.active {
 
 /* Changing colours.
 */
+.btn-link,
+.btn-link:hover {
+    color: #006D77;
+}
+
+.progress-bar {
+    background-color: #006D77;
+}
+
 .primary,
 .btn-primary {
     border-color: #006D77;
     background-color: #006D77;
-}
-
-.btn-link,
-.btn-link:hover {
-    color: #006D77;
 }

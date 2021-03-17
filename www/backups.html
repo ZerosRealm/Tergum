@@ -61,7 +61,7 @@
                         </div>
                     </div>
 
-                    <h2>Backups</h2>
+                    <!-- <h2>Backups</h2> -->
                     <button class="btn btn-primary" type="button" onclick="prepareNewBackup()" data-bs-toggle="collapse" data-bs-target="#newBackup" aria-expanded="false" aria-controls="newBackup">
                         New
                     </button>
@@ -85,6 +85,23 @@
                             <th scope="col">#</th>
                             <th scope="col">Source</th>
                             <th scope="col">Schedule</th>
+                            <th scope="col" style='text-align:right;'>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="row">
+                <div id="jobs" class="col">
+                    <h2>Jobs</h2>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Progress</th>
+                            <th scope="col">Snapshot</th>
                             <th scope="col" style='text-align:right;'>Actions</th>
                             </tr>
                         </thead>

@@ -5,6 +5,7 @@ var cache = {
     backups: [],
     agents: [],
     subscribers: [],
+    jobs: [],
     snapshots: {
         repo: 0,
         data: []
@@ -22,6 +23,7 @@ function refresh() {
     requestData("getagents")
     requestData("getrepos")
     requestData("getsubscribers")
+    requestData("getjobs")
 }
 
 function showError(msg) {
@@ -59,11 +61,22 @@ webSocket.onmessage = function (event) {
         return
     }
     let data = JSON.parse(event.data)
-    switch (data.type) {
+    switch (data.type.toLowerCase()) {
         case "getbackups":
             cache.backups = data.backups
             if (cache.currentPage == "backups") {
                 gotBackups(data)
+            }
+            break;
+        case "getjobs":
+            cache.jobs = data.jobs
+            if (cache.currentPage == "backups") {
+                gotJobs(data)
+            }
+            break;
+        case "jobprogress":
+            if (cache.currentPage == "backups") {
+                gotJobProgress(data)
             }
             break;
         case "getrepos":

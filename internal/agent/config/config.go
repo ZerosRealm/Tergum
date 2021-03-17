@@ -12,6 +12,7 @@ type Config struct {
 	}
 	PSK    string
 	Restic string
+	Server string
 }
 
 // Load config.

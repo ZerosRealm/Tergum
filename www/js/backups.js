@@ -185,3 +185,88 @@ function deleteBackup(id) {
     };
     webSocket.send(JSON.stringify(msg));
 }
+
+function gotJobs(data) {
+    $(`#jobs table tbody`).empty()
+    for (const job in data.jobs) {
+        if (Object.hasOwnProperty.call(data.jobs, job)) {
+            const elem = data.jobs[job]
+            const msg = JSON.parse(atob(elem))
+            let percent = 0
+            let snapshot = ""
+            if (msg.message_type == "status") {
+                percent = Math.floor(msg.percent_done * 100)
+            }
+            if (msg.message_type == "summary") {
+                percent = 100
+                snapshot = msg.snapshot_id
+            }
+
+            let html = `<th scope="row">`+job+`</th>
+                <td>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: `+percent+`%;" aria-valuenow="`+percent+`" aria-valuemin="0" aria-valuemax="100">`+percent+`%</div>
+                    </div>
+                </td>
+                <td>
+                    `+snapshot+`
+                </td>
+                <td>
+                    <button class="btn btn-link float-end ms-1" onclick="showJob(`+job+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
+                        <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+                    </button>
+                </td>`
+
+            let newElem = $(`<tr>`+html+`</tr>`)
+            $(`#jobs table tbody`).append(newElem)
+        }
+    }
+}
+
+function gotJobProgress(data) {
+    let jobElems = $(`#jobs table tbody`).children()
+    
+    let foundElem = null
+    for (let i = 0; i < jobElems.length; i++) {
+        const jobElem = jobElems[i];
+        let children = $(jobElem).children()
+        if (children.length != 0) {
+            let id = children[0].innerText
+            if (id == data.job) {
+                foundElem = jobElem
+            }
+        }
+    }
+
+    let percent = 0
+    let snapshot = ""
+    if (data.msg.message_type == "status") {
+        percent = Math.floor(data.msg.percent_done * 100)
+    }
+    if (data.msg.message_type == "summary") {
+        percent = 100
+        snapshot = data.msg.snapshot_id
+    }
+
+    let html = `<th scope="row">`+data.job+`</th>
+        <td>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: `+percent+`%;" aria-valuenow="`+percent+`" aria-valuemin="0" aria-valuemax="100">`+percent+`%</div>
+            </div>
+        </td>
+        <td>
+            `+snapshot+`
+        </td>
+        <td>
+            <button class="btn btn-link float-end ms-1" onclick="showJob(`+data.job+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
+                <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+            </button>
+        </td>`
+
+    if (foundElem == null) {
+        foundElem = $(`<tr>`+html+`</tr>`)
+        $(`#jobs table`).append(foundElem)
+        return
+    }
+    foundElem.innerHTML = html
+}

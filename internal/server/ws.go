@@ -691,6 +691,25 @@ func updateSubscribers(data map[string]interface{}) ([]byte, error) {
 	return encodeMessage("Subscribed to backup!", "updateSubscribers"), nil
 }
 
+func getJobs() ([]byte, error) {
+	jobs := make(map[string]interface{})
+	jobs["type"] = "getjobs"
+	jobs["jobs"] = make(map[string][]byte)
+
+	for job, data := range savedData.Jobs {
+		jobs["jobs"].(map[string][]byte)[job] = data
+	}
+
+	var buf = bytes.NewBufferString("")
+	enc := json.NewEncoder(buf)
+	err := enc.Encode(jobs)
+	if err != nil {
+		return encodeError(err.Error()), err
+	}
+
+	return buf.Bytes(), nil
+}
+
 func getSnapshots(data map[string]interface{}) ([]byte, error) {
 	var repoID int
 	switch v := data["id"].(type) {
