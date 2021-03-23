@@ -28,7 +28,7 @@ steps:
   settings:
     username: zero
     password: R2!Uh&uV*ZnMk%yp4H8q#xHSJAHYw5
-    repo: registry.zerosrealm.xyz/zerosrealm/tergum
+    repo: registry.zerosrealm.xyz/zerosrealm/tergum-agent
     registry: registry.zerosrealm.xyz
     dockerfile: dockerfile/agent
     tags:
