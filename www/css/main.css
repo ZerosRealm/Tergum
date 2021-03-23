@@ -23,8 +23,8 @@ body {
 
 .alert-success,
 .alert-danger {
-    margin: auto;
     padding: 10px;
+    /* margin: auto; */
     /* width: max-content; */
 }
 

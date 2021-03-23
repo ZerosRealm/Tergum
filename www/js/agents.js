@@ -1,7 +1,14 @@
 $( document ).ready(function() {
     cache.currentPage = "agents"
+    refresh()
 });
 
+const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+function generatePSK() {
+    let psk = $("#agents .card input[name='psk']")
+    psk.val(genRanHex(32))
+}
 
 function gotAgents(data) {
     let table = $("#agents table tbody")
@@ -13,7 +20,7 @@ function gotAgents(data) {
                         <td>`+agent.IP+`</td>
                         <td>`+agent.Port+`</td>
                         <td>
-                            <button class="btn btn-danger float-end ms-1" onclick="deleteAgent(`+agent.ID+`)">
+                            <button class="btn btn-danger float-end ms-1" onclick="confirmationBox('Do you want to delete this agent?', () => deleteAgent(`+agent.ID+`))">
                                 <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
                             </button>
                             <button class="btn btn-link float-end ms-1" onclick="editAgent(`+agent.ID+`)" data-bs-toggle="modal" data-bs-target="#editAgent">

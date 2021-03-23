@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 )
 
@@ -24,32 +23,22 @@ func New(exePath string) *Restic {
 	}
 }
 
-type BackupMsg struct {
-	Type string `json:"message_type"`
-}
-
-type BackupStatus struct {
-	BackupMsg
-	Percent      float64  `json:"percent_done"`
-	TotalFiles   int      `json:"total_files"`
-	TotalBytes   int      `json:"total_bytes"`
-	BytesDone    int      `json:"bytes_done"`
-	CurrentFiles []string `json:"current_files"`
-}
-
-type BackupSummary struct {
-	BackupMsg
-	Snapshot string `json:"snapshot_id"`
-}
-
+// TODO: Add cancelation?
 // Backup source to target repo.
-func (r *Restic) Backup(repo, source, password string, jobID string, updates chan []byte, env ...string) ([]byte, error) {
+func (r *Restic) Backup(repo, source, password string, exclude []string, jobID string, updates chan []byte, env ...string) ([]byte, error) {
 	args := []string{
 		"backup",
 		"--json",
 		"--repo",
 		repo,
 		source,
+	}
+
+	if exclude != nil && len(exclude) != 0 {
+		for _, val := range exclude {
+			args = append(args, "--exclude")
+			args = append(args, val)
+		}
 	}
 
 	// defer cancel()
@@ -69,15 +58,12 @@ func (r *Restic) Backup(repo, source, password string, jobID string, updates cha
 
 	reader := bufio.NewReader(cmdReader)
 
-	// TODO: Integrate the summary. Use map of interfaces and then cast based on type?
-	// {"message_type":"summary","files_new":0,"files_changed":0,"files_unmodified":1,"dirs_new":0,"dirs_changed":0,"dirs_unmodified":4,"data_blobs":0,"tree_blobs":0,"data_added":0,"total_files_processed":1,"total_bytes_processed":10485760000,"total_duration":0.2987189,"snapshot_id":"3ddedf4e"}
 	go func() {
 		for {
 			data, err := reader.ReadBytes('\n')
 			if err != nil {
 				break
 			}
-			// data = strings.Replace(data, "\n", "", -1)
 			data = bytes.Replace(data[5:], []byte("\n"), []byte(""), -1)
 
 			var vData map[string]interface{}
@@ -101,9 +87,6 @@ func (r *Restic) Backup(repo, source, password string, jobID string, updates cha
 				log.Println("sent update")
 			default:
 			}
-
-			// fmt.Println(string(data))
-			// spew.Dump(msg)
 		}
 	}()
 	if err := cmd.Start(); err != nil {
@@ -170,17 +153,19 @@ func (r *Restic) Restore(repo, password, snapshot, target, include, exclude stri
 
 // Snapshot instance from repo.
 type Snapshot struct {
-	ID    string
-	Time  string
-	Host  string
-	Tags  string
-	Paths string
+	ID    string   `json:"id"`
+	Time  string   `json:"time"`
+	Host  string   `json:"hostname"`
+	User  string   `json:"username"`
+	Tags  []string `json:"tags"`
+	Paths []string `json:"paths"`
 }
 
 // Snapshots from repo.
 func (r *Restic) Snapshots(repo, password string, env ...string) ([]Snapshot, error) {
 	args := []string{
 		"snapshots",
+		"--json",
 		"--repo",
 		repo,
 	}
@@ -203,18 +188,10 @@ func (r *Restic) Snapshots(repo, password string, env ...string) ([]Snapshot, er
 		return nil, fmt.Errorf("%s", string(out))
 	}
 
-	re := regexp.MustCompile(`(?m)(\w+)  (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})  (\w+)     (.+)  (.+)`)
-	matches := re.FindAllStringSubmatch(string(out), -1)
-
-	snapshots := make([]Snapshot, 0)
-	for _, match := range matches {
-		snapshots = append(snapshots, Snapshot{
-			ID:    match[1],
-			Time:  match[2],
-			Host:  match[3],
-			Tags:  strings.ReplaceAll(match[4], " ", ""),
-			Paths: match[5],
-		})
+	var snapshots []Snapshot
+	err = json.Unmarshal(out, &snapshots)
+	if err != nil {
+		return nil, err
 	}
 
 	return snapshots, err

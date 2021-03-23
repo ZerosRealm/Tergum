@@ -15,6 +15,7 @@ type Backup struct {
 	Target   int
 	Source   string
 	Schedule string
+	Exclude  []string
 }
 
 // Agent to send jobs to.

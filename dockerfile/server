@@ -1,0 +1,16 @@
+FROM debian:latest
+
+RUN mkdir /data
+
+COPY config.yml /data/config.yml
+COPY www /data/www/
+COPY server /data/server
+
+RUN apt update && apt install openssl ca-certificates -y
+
+RUN chmod +x /data/server
+
+WORKDIR /data
+
+EXPOSE 8080
+CMD [ "/data/server" ]

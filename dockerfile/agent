@@ -1,0 +1,16 @@
+FROM debian:latest
+
+RUN mkdir /data
+
+COPY config.yml /data/config.yml
+COPY www /data/www/
+COPY agent /data/agent
+
+RUN apt update && apt install openssl ca-certificates -y
+
+RUN chmod +x /data/agent
+
+WORKDIR /data
+
+EXPOSE 8080
+CMD [ "/data/agent" ]

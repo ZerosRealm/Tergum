@@ -407,6 +407,27 @@ func updateBackup(data map[string]interface{}) ([]byte, error) {
 		}
 	}
 
+	if _, ok := data["exclude"]; ok {
+		switch v := data["exclude"].(type) {
+		case []string:
+			foundBackup.Exclude = v
+		case []interface{}:
+			foundBackup.Exclude = []string{}
+			for _, val := range v {
+				switch vVal := val.(type) {
+				case string:
+					foundBackup.Exclude = append(foundBackup.Exclude, vVal)
+				default:
+					msg := "exclude was of invalid type"
+					return encodeError(msg), fmt.Errorf(msg)
+				}
+			}
+		default:
+			msg := "exclude was of invalid type"
+			return encodeError(msg), fmt.Errorf(msg)
+		}
+	}
+
 	savedData.Backups[index] = foundBackup
 
 	return encodeMessage("Backup updated!", "success"), nil
@@ -592,6 +613,47 @@ func deleteAgent(data map[string]interface{}) ([]byte, error) {
 	savedData.Agents = append(savedData.Agents[:index], savedData.Agents[index+1:]...)
 
 	return encodeMessage("Agent deleted!", "success"), nil
+}
+
+func deleteSnapshot(data map[string]interface{}) ([]byte, error) {
+	var id int
+	switch v := data["id"].(type) {
+	case int:
+		id = v
+	case float32:
+		id = int(v)
+	case float64:
+		id = int(v)
+	default:
+		msg := "id was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var snapshot string
+	switch v := data["snapshot"].(type) {
+	case string:
+		snapshot = v
+	default:
+		msg := "snapshot was of invalid type"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	var foundRepo *types.Repo
+	for _, repo := range savedData.Repos {
+		if repo.ID == id {
+			foundRepo = repo
+			break
+		}
+	}
+
+	if foundRepo == nil {
+		msg := "no repo was found with that id"
+		return encodeError(msg), fmt.Errorf(msg)
+	}
+
+	resticExe.Forget(foundRepo.Repo, foundRepo.Password, snapshot, nil, foundRepo.Settings...)
+
+	return encodeMessage("Snapshot deleted!", "success"), nil
 }
 
 func getSubscribers() ([]byte, error) {

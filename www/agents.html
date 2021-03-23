@@ -63,7 +63,7 @@
                     </button>
                     <div class="collapse mt-3" id="newAgent">
                         <div class="card card-body">
-                            <label class="form-label mt-3">Name</label>
+                            <label class="form-label">Name</label>
                             <input type="text" class="form-control" name="name" placeholder="eg. hostname">
 
                             <label class="form-label mt-3">IP</label>
@@ -73,7 +73,12 @@
                             <input type="text" class="form-control" name="port" placeholder="port">
 
                             <label class="form-label mt-3">PSK</label>
-                            <input type="text" class="form-control" name="psk" placeholder="PSK">
+                            <div style="display: inline-flex;">
+                                <input type="text" class="form-control" name="psk" placeholder="PSK">
+                                <button class="btn btn-primary ms-2" onclick="generatePSK()">
+                                    <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#arrow-clockwise"/></svg>
+                                </button>
+                            </div>
 
                             <button class="btn btn-primary mt-3" onclick="newAgent()" data-bs-toggle="collapse" data-bs-target="#newAgent" type="button">Save</button>
                         </div>

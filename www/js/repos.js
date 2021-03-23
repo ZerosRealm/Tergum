@@ -1,5 +1,6 @@
 $( document ).ready(function() {
     cache.currentPage = "repos"
+    refresh()
 });
 
 function gotRepos(data) {
@@ -11,7 +12,7 @@ function gotRepos(data) {
                         <td>`+repo.Name+`</td>
                         <td>`+repo.Repo+`</td>
                         <td>
-                            <button class="btn btn-danger float-end ms-1" onclick="deleteRepo(`+repo.ID+`)">
+                            <button class="btn btn-danger float-end ms-1" onclick="confirmationBox('Do you want to delete this repo?', () => deleteRepo(`+repo.ID+`))">
                                 <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
                             </button>
                             <button class="btn btn-link float-end ms-1" onclick="editRepo(`+repo.ID+`)" data-bs-toggle="modal" data-bs-target="#editRepo">
@@ -116,21 +117,31 @@ function getSnapshots(id) {
 }
 
 function gotSnapshots(data) {
+    $(`#snapshots input[name="id"]`).val(data.repo)
     let table = $("#snapshots table tbody")
     table.empty()
     
     data.snapshots.forEach(snapshot => {
+        let tags = ""
+        if (snapshot.tags != null) {
+            tags = snapshot.tags.join(",")
+        }
+        let paths = ""
+        if (snapshot.paths != null) {
+            paths = snapshot.paths.join(",")
+        }
+
         let item = $(`<tr>
-                        <th scope="row">`+snapshot.ID+`</th>
-                        <td>`+snapshot.Time+`</td>
-                        <td>`+snapshot.Host+`</td>
-                        <td>`+snapshot.Tags+`</td>
-                        <td>`+snapshot.Paths+`</td>
+                        <th scope="row">`+snapshot.id.substring(0,8)+`</th>
+                        <td>`+snapshot.time+`</td>
+                        <td>`+snapshot.hostname+`</td>
+                        <td>`+tags+`</td>
+                        <td>`+paths+`</td>
                         <td>
-                            <button class="btn btn-danger float-end ms-1" onclick="deleteSnapshot(`+snapshot.ID+`)">
+                            <button class="btn btn-danger float-end ms-1" onclick="confirmationBox('Do you want to delete this snapshot?', () => deleteSnapshot('`+snapshot.id+`'))" data-bs-dismiss="modal">
                                 <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
                             </button>
-                            <button type="button" class="btn btn-link" onclick="prepareRestore('`+snapshot.ID+`')" data-bs-dismiss="modal">
+                            <button type="button" class="btn btn-link" onclick="prepareRestore('`+snapshot.id+`')" data-bs-dismiss="modal">
                                 <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#download"/></svg>
                             </button>
                         </td>
@@ -198,6 +209,16 @@ function restoreSnapshot() {
         target: target,
         include: include,
         exclude: exclude,
+    };
+    webSocket.send(JSON.stringify(msg));
+}
+
+function deleteSnapshot(snapshot) {
+    let repoID = $(`#snapshots input[name="id"]`).val()
+    var msg = {
+        type: "deleteSnapshot",
+        id: parseInt(repoID),
+        snapshot: snapshot,
     };
     webSocket.send(JSON.stringify(msg));
 }

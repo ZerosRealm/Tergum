@@ -81,7 +81,7 @@ func handleConnection(c net.Conn) {
 		}
 
 		log.Println("running job", data.ID)
-		out, err := resticExe.Backup(data.Repo.Repo, job.Backup.Source, data.Repo.Password, data.ID, updates, data.Repo.Settings...)
+		out, err := resticExe.Backup(data.Repo.Repo, job.Backup.Source, data.Repo.Password, job.Backup.Exclude, data.ID, updates, data.Repo.Settings...)
 		if err != nil {
 			log.Println("job error:", err, "out:", string(out))
 			return

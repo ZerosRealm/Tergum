@@ -220,6 +220,13 @@ func ws(w http.ResponseWriter, req *http.Request) {
 			}
 
 			resp = msg
+		case "deletesnapshot":
+			msg, err := deleteSnapshot(data)
+			if err != nil {
+				log.Println(err)
+			}
+
+			resp = msg
 		case "getjobs":
 			msg, err := getJobs()
 			if err != nil {

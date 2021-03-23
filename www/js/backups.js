@@ -1,5 +1,6 @@
 $( document ).ready(function() {
     cache.currentPage = "backups"
+    refresh()
 });
 
 function gotBackups(data) {
@@ -11,7 +12,7 @@ function gotBackups(data) {
                         <td>`+backup.Source+`</td>
                         <td>`+backup.Schedule+`</td>
                         <td>
-                            <button class="btn btn-danger float-end ms-1" onclick="deleteBackup(`+backup.ID+`)">
+                            <button class="btn btn-danger float-end ms-1" onclick="confirmationBox('Do you want to delete this backup?', () => deleteBackup(`+backup.ID+`))">
                                 <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#trash"/></svg>
                             </button>
                             <button class="btn btn-link float-end ms-1" onclick="editBackup(`+backup.ID+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
@@ -28,10 +29,15 @@ function newBackup() {
     let repo = $("#backups .card select[name='repo']").val()
     let source = $("#backups .card input[name='source']").val()
     let schedule = $("#backups .card input[name='schedule']").val()
+    let exclude = $("#backups .card textarea[name='exclude']").val().split('\n')
 
     if (repo == -1) {
         showError("You need to select a repository.")
         return
+    }
+
+    if (exclude.length == 1 && exclude[0] == "") {
+        exclude = []
     }
 
     var msg = {
@@ -39,6 +45,7 @@ function newBackup() {
         target: parseInt(repo),
         source: source,
         schedule: schedule,
+        exclude: exclude,
     };
     webSocket.send(JSON.stringify(msg));
 }
@@ -60,9 +67,9 @@ function editBackup(id) {
     $("#editBackup input").val("")
 
     let idInput = $("#editBackup input[name='id']")
-    let repo = $("#editBackup select[name='repo']")
     let source = $("#editBackup input[name='source']")
     let schedule = $("#editBackup input[name='schedule']")
+    let exclude = $("#editBackup textarea[name='exclude']")
 
     let data = null
     cache.backups.forEach(backup => {
@@ -114,9 +121,11 @@ function editBackup(id) {
     }
 
     idInput.val(data.ID)
-    // repo.val(data.Target)
     source.val(data.Source)
     schedule.val(data.Schedule)
+    if (data.Exclude) {
+        exclude.val(data.Exclude.join("\n"))
+    }
 }
 
 function addSubscriber() {
@@ -186,6 +195,36 @@ function deleteBackup(id) {
     webSocket.send(JSON.stringify(msg));
 }
 
+function showJob(jobID) {
+    let job = JSON.parse(atob(cache.jobs[jobID]))
+
+    if (job == undefined || job == null) {
+        showError("No job with that ID in cache.")
+        return
+    }
+
+    let modal = $("#jobs #showJob .modal-body .info")
+    modal.empty()
+
+    // TODO: Convert bytes to MB or GB?
+    for (const key in job) {
+        if (key == "message_type") {
+            continue
+        }
+        let val = job[key]
+
+        if (key == "percent_done") {
+            val = Math.floor(val*100)+"%"
+        }
+
+        let newElem = $(`
+            <label class="form-label mt-3">`+ capitalize(key).replaceAll("_", " ") +`</label>
+            <input type="text" class="form-control" value="`+val+`" disabled>
+        `)
+        modal.append(newElem)
+    }
+}
+
 function gotJobs(data) {
     $(`#jobs table tbody`).empty()
     for (const job in data.jobs) {
@@ -212,8 +251,8 @@ function gotJobs(data) {
                     `+snapshot+`
                 </td>
                 <td>
-                    <button class="btn btn-link float-end ms-1" onclick="showJob(`+job+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
-                        <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
+                    <button class="btn btn-link float-end ms-1" onclick="showJob('`+job+`')" data-bs-toggle="modal" data-bs-target="#showJob">
+                        <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#search"/></svg>
                     </button>
                 </td>`
 
@@ -258,7 +297,7 @@ function gotJobProgress(data) {
             `+snapshot+`
         </td>
         <td>
-            <button class="btn btn-link float-end ms-1" onclick="showJob(`+data.job+`)" data-bs-toggle="modal" data-bs-target="#editBackup">
+            <button class="btn btn-link float-end ms-1" onclick="showJob('`+data.job+`')" data-bs-toggle="modal" data-bs-target="#showJob">
                 <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#pencil-square"/></svg>
             </button>
         </td>`
