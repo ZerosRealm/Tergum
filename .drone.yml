@@ -1,0 +1,73 @@
+kind: pipeline
+name: default
+
+steps:
+- name: build
+  image: golang
+  commands:
+    - go build cmd/server/server.go
+    - go build cmd/agent/agent.go
+- name: docker-server
+  image: plugins/docker
+  volumes:
+  - name: docker
+    path: /var/run/docker.sock
+  settings:
+    username: zero
+    password: R2!Uh&uV*ZnMk%yp4H8q#xHSJAHYw5
+    repo: registry.zerosrealm.xyz/zerosrealm/tergum
+    registry: registry.zerosrealm.xyz
+    dockerfile: dockerfile/server
+    tags:
+      - latest
+- name: docker-agent
+  image: plugins/docker
+  volumes:
+  - name: docker
+    path: /var/run/docker.sock
+  settings:
+    username: zero
+    password: R2!Uh&uV*ZnMk%yp4H8q#xHSJAHYw5
+    repo: registry.zerosrealm.xyz/zerosrealm/tergum
+    registry: registry.zerosrealm.xyz
+    dockerfile: dockerfile/agent
+    tags:
+      - latest
+# - name: deploy
+#   image: docker
+#   volumes:
+#   - name: docker
+#     path: /var/run/docker.sock
+#   - name: docker-creds
+#     path: /root/.docker
+#   - name: zeros-stacks
+#     path: /var/zeros-stacks
+#   commands:
+#   - docker stack update tergum --with-registry-auth --compose-file /var/zeros-stacks/125/docker-compose.yml
+#   - docker stack deploy tergum --with-registry-auth --compose-file /var/zeros-stacks/125/docker-compose.yml
+- name: notify
+  image: plugins/matrix
+  when:
+    status:
+    - failure
+    - success
+  settings:
+    homeserver: https://matrix.zerosrealm.xyz/
+    roomid: KnUwEiZCiqpmfoRWsh:zerosrealm.xyz
+    username: Notifier
+    password: "D43885!XB3N*5@m3n@@&$rLd%"
+    template: "<a href=\"https://matrix.to/#/@monarch:zerosrealm.xyz\">Monarch</a> Build {{ build.status }} [{{ repo.Owner }}/{{ repo.Name }}#{{ truncate build.commit 8 }}]({{ build.link }}) ({{ build.branch }})"
+
+volumes:
+- name: docker
+  host:
+    path: /var/run/docker.sock
+- name: docker-creds
+  host:
+    path: /root/.docker
+- name: zeros-stacks
+  host:
+    path: /srv/docker/portainer/compose
+- name: ca-certs
+  host:
+    path: /etc/ssl/certs/ca-certificates.crt

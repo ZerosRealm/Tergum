@@ -18,6 +18,7 @@
 backup
 winscp.txt
 data
-*.yml
+agent.yml
+config.yml
 agent.ps1
 restic.exe
