@@ -14,7 +14,7 @@ steps:
     path: /var/run/docker.sock
   settings:
     username: zero
-    password: R2!Uh&uV*ZnMk%yp4H8q#xHSJAHYw5
+    password: LG4xgZuDDafh9JB5
     repo: registry.zerosrealm.xyz/zerosrealm/tergum
     registry: registry.zerosrealm.xyz
     dockerfile: dockerfile/server
@@ -27,7 +27,7 @@ steps:
     path: /var/run/docker.sock
   settings:
     username: zero
-    password: R2!Uh&uV*ZnMk%yp4H8q#xHSJAHYw5
+    password: LG4xgZuDDafh9JB5
     repo: registry.zerosrealm.xyz/zerosrealm/tergum-agent
     registry: registry.zerosrealm.xyz
     dockerfile: dockerfile/agent
@@ -43,7 +43,7 @@ steps:
 #   - name: zeros-stacks
 #     path: /var/zeros-stacks
 #   commands:
-#   - docker stack update tergum --with-registry-auth --compose-file /var/zeros-stacks/125/docker-compose.yml
+##   - docker stack update tergum --with-registry-auth --compose-file /var/zeros-stacks/125/docker-compose.yml
 #   - docker stack deploy tergum --with-registry-auth --compose-file /var/zeros-stacks/125/docker-compose.yml
 - name: notify
   image: plugins/matrix
