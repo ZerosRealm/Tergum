@@ -9,10 +9,7 @@ pipeline {
     stage('Build') {
       steps {
         sh 'go build cmd/server/server.go'
-        sh '''go build cmd/agent/agent.go
-
-
-'''
+        sh 'go build cmd/agent/agent.go'
         echo 'Building done.'
       }
     }
