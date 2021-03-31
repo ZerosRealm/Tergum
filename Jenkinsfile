@@ -21,4 +21,7 @@ pipeline {
     }
 
   }
+  environment {
+    XDG_CACHE_HOME = '/tmp/.cache'
+  }
 }
