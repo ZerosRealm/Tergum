@@ -5,6 +5,17 @@ pipeline {
     }
 
   }
+
+  environment {
+    XDG_CACHE_HOME = '/tmp/.cache'
+    PROJECT_NAME="Tergum"
+    DOMAIN="zerosrealm.xyz"
+    STACK="tergum"
+    DOCKER_REGISTRY="https://registry.zerosrealm.xyz"
+    CONTAINER="zerosrealm/tergum"
+    VERSION="1.${BUILD_NUMBER}"
+  }
+
   stages {
     stage('Build') {
       steps {
@@ -14,14 +25,46 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
+    stage('Build Server Image') {
       steps {
-        echo 'Yay!\\nDeploying it!'
+        script {
+            docker.withRegistry("${DOCKER_REGISTRY}", "zerosregistry-creds") {
+                def img = docker.build("${CONTAINER}:${VERSION}", "./dockerfiles/server")
+                img.push('latest')
+                sh "docker rmi ${img.id}"
+            }
+        }
       }
     }
 
-  }
-  environment {
-    XDG_CACHE_HOME = '/tmp/.cache'
+    stage('Build Agent Image') {
+      steps {
+        script {
+            docker.withRegistry("${DOCKER_REGISTRY}", "zerosregistry-creds") {
+                def img = docker.build("${CONTAINER}-agent:${VERSION}", "./dockerfiles/agent")
+                img.push('latest')
+                sh "docker rmi ${img.id}"
+            }
+        }
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        withCredentials([
+          usernamePassword(
+            credentialsId: 'zerosrealm-creds,
+            usernameVariable: 'DOCKER_USER’,
+            passwordVariable: 'DOCKER_PASSWORD'
+          )
+        ])
+        script {
+          echo "Deploying Container Stack"
+          
+        }
+        echo 'Deployed!'
+      }
+    }
+
   }
 }
