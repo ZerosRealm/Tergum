@@ -28,7 +28,7 @@ pipeline {
     stage('Build Server Image') {
       steps {
         script {
-            docker.withRegistry("${DOCKER_REGISTRY}", "zerosregistry-creds") {
+            docker.withRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
                 def img = docker.build("${CONTAINER}:${VERSION}", "./dockerfiles/server")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
