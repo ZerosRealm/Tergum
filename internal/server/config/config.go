@@ -1,6 +1,7 @@
 package config
 
 import (
+	_ "embed"
 	"log"
 	"os"
 

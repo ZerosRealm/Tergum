@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"embed"
+	_ "embed"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -347,7 +348,7 @@ func update(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-//go:embed www/
+//go:embed www
 var www embed.FS
 
 // StartServer to serve HTTP.
