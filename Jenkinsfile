@@ -1,9 +1,6 @@
 pipeline {
   agent {
-    docker {
-      image 'golang:latest'
-    }
-
+      label 'docker1'
   }
 
   environment {
@@ -26,11 +23,10 @@ pipeline {
     }
 
     stage('Push Server Image') {
-      agent { label 'docker1' }
       steps {
         script {
-            withDockerRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
-                def img = docker.build("${CONTAINER}:${VERSION}", "./dockerfiles/server")
+            withDockerRegistry(credentialsId: 'zerosregistry-creds', url: 'https://registry.zerosrealm.xyz/') {
+                def img = docker.build("${CONTAINER}:${VERSION}", "-f ./dockerfiles/server ./dockerfiles")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
             }
@@ -39,11 +35,10 @@ pipeline {
     }
 
     stage('Push Agent Image') {
-      agent { label 'docker1' }
       steps {
         script {
-            withDockerRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
-                def img = docker.build("${CONTAINER}-agent:${VERSION}", "./dockerfiles/agent")
+            withDockerRegistry(credentialsId: 'zerosregistry-creds', url: 'https://registry.zerosrealm.xyz/') {
+                def img = docker.build("${CONTAINER}-agent:${VERSION}", "-f ./dockerfiles/agent ./dockerfiles")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
             }
