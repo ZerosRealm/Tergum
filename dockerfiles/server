@@ -7,6 +7,8 @@ RUN mkdir /data
 COPY server /data/server
 
 RUN apt update && apt install openssl ca-certificates -y
+RUN apt install restic -y
+RUN restic self-update
 
 RUN chmod +x /data/server
 
