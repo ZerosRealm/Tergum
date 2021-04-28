@@ -52,15 +52,14 @@ pipeline {
     stage('Deploy') {
       steps {
         withCredentials([
-          usernamePassword(
-            credentialsId: 'zerosrealm-creds,
-            usernameVariable: 'DOCKER_USER’,
-            passwordVariable: 'DOCKER_PASSWORD'
+          secretText(
+            credentialsId: 'tergum-deploy',
+            secretVariable: 'DEPLOY_URL'
           )
         ])
         script {
           echo "Deploying Container Stack"
-          
+          sh 'curl -X POST $DEPLOY_URL'
         }
         echo 'Deployed!'
       }
