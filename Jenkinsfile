@@ -9,7 +9,7 @@ pipeline {
     DOMAIN="zerosrealm.xyz"
     STACK="tergum"
     DOCKER_REGISTRY="https://registry.zerosrealm.xyz"
-    CONTAINER="zerosrealm/tergum"
+    CONTAINER="registry.zerosrealm.xyz/zerosrealm/tergum"
     VERSION="1.${BUILD_NUMBER}"
   }
 
@@ -25,8 +25,9 @@ pipeline {
     stage('Push Server Image') {
       steps {
         script {
+            sh 'docker logout'
             withDockerRegistry(credentialsId: 'zerosregistry-creds', url: 'https://registry.zerosrealm.xyz/') {
-                def img = docker.build("${CONTAINER}:${VERSION}", "-f ./dockerfiles/server ./dockerfiles")
+                def img = docker.build("${CONTAINER}:${VERSION}", "-f ./dockerfiles/server .")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
             }
@@ -37,8 +38,9 @@ pipeline {
     stage('Push Agent Image') {
       steps {
         script {
+            sh 'docker logout'
             withDockerRegistry(credentialsId: 'zerosregistry-creds', url: 'https://registry.zerosrealm.xyz/') {
-                def img = docker.build("${CONTAINER}-agent:${VERSION}", "-f ./dockerfiles/agent ./dockerfiles")
+                def img = docker.build("${CONTAINER}-agent:${VERSION}", "-f ./dockerfiles/agent .")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
             }
