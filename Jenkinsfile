@@ -29,7 +29,7 @@ pipeline {
       agent { label 'docker1' }
       steps {
         script {
-            docker.withRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
+            withDockerRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
                 def img = docker.build("${CONTAINER}:${VERSION}", "./dockerfiles/server")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
@@ -42,7 +42,7 @@ pipeline {
       agent { label 'docker1' }
       steps {
         script {
-            docker.withRegistry("${DOCKER_REGISTRY}", "zerosregistry-creds") {
+            withDockerRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
                 def img = docker.build("${CONTAINER}-agent:${VERSION}", "./dockerfiles/agent")
                 img.push('latest')
                 sh "docker rmi ${img.id}"
