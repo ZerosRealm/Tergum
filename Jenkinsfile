@@ -25,7 +25,8 @@ pipeline {
       }
     }
 
-    stage('Build Server Image') {
+    stage('Push Server Image') {
+      agent { label 'docker1' }
       steps {
         script {
             docker.withRegistry("${DOCKER_REGISTRY}", "zerosrealm-creds") {
@@ -37,7 +38,8 @@ pipeline {
       }
     }
 
-    stage('Build Agent Image') {
+    stage('Push Agent Image') {
+      agent { label 'docker1' }
       steps {
         script {
             docker.withRegistry("${DOCKER_REGISTRY}", "zerosregistry-creds") {
