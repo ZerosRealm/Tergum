@@ -1,4 +1,4 @@
 listen:
   ip: 127.0.0.1
-  port: 80
+  port: 8080
 restic: /usr/bin/restic

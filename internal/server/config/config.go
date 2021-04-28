@@ -38,7 +38,7 @@ func Load() Config {
 		conf.Listen.IP = "127.0.0.1"
 	}
 	if conf.Listen.Port == 0 {
-		conf.Listen.Port = 80
+		conf.Listen.Port = 8080
 	}
 
 	return conf

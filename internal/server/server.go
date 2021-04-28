@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"embed"
 	_ "embed"
 	"encoding/gob"
 	"encoding/json"
@@ -348,9 +347,6 @@ func update(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-//go:embed www
-var www embed.FS
-
 // StartServer to serve HTTP.
 func StartServer(conf *config.Config) {
 	loadData()
@@ -368,8 +364,7 @@ func StartServer(conf *config.Config) {
 	go queueHandler(ctx)
 	go wsWriter(ctx)
 
-	fs := http.FileServer(http.FS(www))
-	http.Handle("/", fs)
+	http.Handle("/", http.FileServer(http.Dir("www")))
 	http.HandleFunc("/ws", ws)
 	http.HandleFunc("/update", update)
 
