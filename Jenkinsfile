@@ -51,17 +51,13 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        withCredentials([
-          secretText(
-            credentialsId: 'tergum-deploy',
-            secretVariable: 'DEPLOY_URL'
-          )
-        ])
-        script {
-          echo "Deploying Container Stack"
-          sh 'curl -X POST $DEPLOY_URL'
+        withCredentials([string(credentialsId: 'tergum-deploy', variable: 'DEPLOY_URL')]) {
+          script {
+            echo "Deploying Container Stack"
+            sh 'curl -X POST $DEPLOY_URL'
+          }
+          echo 'Deployed!'
         }
-        echo 'Deployed!'
       }
     }
 
