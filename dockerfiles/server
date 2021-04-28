@@ -2,7 +2,7 @@ FROM debian:latest
 
 RUN mkdir /data
 
-COPY config.yml /data/config.yml
+#COPY config.yml /data/config.yml
 COPY www /data/www/
 COPY server /data/server
 
