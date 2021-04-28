@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"embed"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/websocket"
 	"zerosrealm.xyz/tergum/internal/restic"
@@ -347,6 +347,9 @@ func update(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+//go:embed www/
+var www embed.FS
+
 // StartServer to serve HTTP.
 func StartServer(conf *config.Config) {
 	loadData()
@@ -364,7 +367,7 @@ func StartServer(conf *config.Config) {
 	go queueHandler(ctx)
 	go wsWriter(ctx)
 
-	fs := http.FileServer(http.Dir("www"))
+	fs := http.FileServer(http.FS(www))
 	http.Handle("/", fs)
 	http.HandleFunc("/ws", ws)
 	http.HandleFunc("/update", update)
@@ -389,25 +392,4 @@ func StartServer(conf *config.Config) {
 	}
 
 	log.Println("stopping")
-}
-
-func startHTTPServer(wg *sync.WaitGroup, connStr string) *http.Server {
-	srv := &http.Server{Addr: connStr}
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "hello world\n")
-	})
-
-	go func() {
-		defer wg.Done() // let main know we are done cleaning up
-
-		// always returns error. ErrServerClosed on graceful close
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			// unexpected error. port in use?
-			log.Fatalf("ListenAndServe(): %v", err)
-		}
-	}()
-
-	// returning reference so caller can call Shutdown()
-	return srv
 }

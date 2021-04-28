@@ -1,6 +1,10 @@
 package config
 
 import (
+	_ "embed"
+	"log"
+	"os"
+
 	"github.com/jinzhu/configor"
 )
 
@@ -15,8 +19,19 @@ type Config struct {
 	Server string
 }
 
+//go:embed agent.yml
+var defaultConfig []byte
+
 // Load config.
 func Load() Config {
+	if _, err := os.Stat("agent.yml"); os.IsNotExist(err) {
+		f, err := os.Create("agent.yml")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		f.Write(defaultConfig)
+	}
 	var conf Config
 	configor.Load(&conf, "agent.yml")
 
