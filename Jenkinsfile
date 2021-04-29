@@ -1,4 +1,7 @@
 pipeline {
+  triggers {
+    pollSCM('') // Enabling being build on Push
+  }
   environment {
     XDG_CACHE_HOME = '/tmp/.cache'
     PROJECT_NAME = 'Tergum'
