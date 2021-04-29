@@ -16,4 +16,4 @@ Progress
 While the repo is public I'm still only developing on it myself, and afterwards welcome any PRs that might come.
 Feel free to open issues labeled as `enhancement` if you have any idea you want added or want to add yourself, but checkout the planned features below.
 
-You can follow the progress and planned features on my Kanban board: https://trello.com/b/JWxyeWXs/tergum
+You can follow the progress and planned features on the `Projects` page.
