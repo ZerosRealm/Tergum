@@ -1,9 +1,18 @@
 pipeline {
+  environment {
+    XDG_CACHE_HOME = '/tmp/.cache'
+    PROJECT_NAME = 'Tergum'
+    DOMAIN = 'zerosrealm.xyz'
+    STACK = 'tergum'
+    DOCKER_REGISTRY = 'https://registry.zerosrealm.xyz'
+    CONTAINER = 'registry.zerosrealm.xyz/zerosrealm/tergum'
+    VERSION = "1.${BUILD_NUMBER}"
+  }
   agent {
-    label 'docker1'
+    label 'master'
   }
   stages {
-    stage('Build') {
+    stage('Build binaries') {
       agent {
         docker {
           image 'golang:latest'
@@ -17,13 +26,13 @@ pipeline {
       }
     }
 
-    stage('Push Server Image') {
+    stage('Build Server Image') {
       agent {
         docker {
           image 'docker:latest'
         }
-
       }
+      options { skipDefaultCheckout() }
       steps {
         script {
           sh 'docker logout'
@@ -42,8 +51,8 @@ pipeline {
         docker {
           image 'docker:latest'
         }
-
       }
+      options { skipDefaultCheckout() }
       steps {
         script {
           sh 'docker logout'
@@ -71,15 +80,17 @@ pipeline {
 
       }
     }
-
   }
-  environment {
-    XDG_CACHE_HOME = '/tmp/.cache'
-    PROJECT_NAME = 'Tergum'
-    DOMAIN = 'zerosrealm.xyz'
-    STACK = 'tergum'
-    DOCKER_REGISTRY = 'https://registry.zerosrealm.xyz'
-    CONTAINER = 'registry.zerosrealm.xyz/zerosrealm/tergum'
-    VERSION = "1.${BUILD_NUMBER}"
+  post {
+      always {
+          cleanWs(
+                  cleanWhenNotBuilt: false,
+                  deleteDirs: true,
+                  disableDeferredWipeout: true,
+                  notFailBuild: true,
+                  patterns: [[pattern: '.gitignore', type: 'INCLUDE'],
+                  [pattern: '.propsfile', type: 'EXCLUDE']]
+          )
+      }
   }
 }
