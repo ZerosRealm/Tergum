@@ -57,30 +57,41 @@
                         </div>
                     </div>
 
-                    <!-- <h2>Agents</h2> -->
                     <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#newAgent" aria-expanded="false" aria-controls="newAgent">
                         New
                     </button>
                     <div class="collapse mt-3" id="newAgent">
                         <div class="card card-body">
                             <label class="form-label">Name</label>
-                            <input type="text" class="form-control" name="name" placeholder="eg. hostname">
+                            <input type="text" class="form-control" name="name" placeholder="E.g. hostname" required>
+                            <div class="invalid-feedback">
+                                Please provide a name.
+                            </div>
 
                             <label class="form-label mt-3">IP</label>
-                            <input type="text" class="form-control" name="ip" placeholder="IP address">
+                            <input type="text" class="form-control" name="ip" placeholder="IP address" required>
+                            <div class="invalid-feedback">
+                                Please provide an IP.
+                            </div>
 
                             <label class="form-label mt-3">Port</label>
-                            <input type="text" class="form-control" name="port" placeholder="port">
+                            <input type="text" class="form-control" name="port" placeholder="Port" required>
+                            <div class="invalid-feedback">
+                                Please provide a port.
+                            </div>
 
                             <label class="form-label mt-3">PSK</label>
                             <div style="display: inline-flex;">
-                                <input type="text" class="form-control" name="psk" placeholder="PSK">
+                                <input type="text" class="form-control" name="psk" placeholder="Pre-shared key" required>
                                 <button class="btn btn-primary ms-2" onclick="generatePSK()">
                                     <svg class="bi" width="16" height="16" fill="currentColor"><use xlink:href="css/bootstrap-icons.svg#arrow-clockwise"/></svg>
                                 </button>
                             </div>
+                            <div for="psk" class="invalid-feedback">
+                                Please provide a PSK.
+                            </div>
 
-                            <button class="btn btn-primary mt-3" onclick="newAgent()" data-bs-toggle="collapse" data-bs-target="#newAgent" type="button">Save</button>
+                            <button class="btn btn-primary mt-3" onclick="newAgent()" type="button">Save</button>
                         </div>
                     </div>
                     <table class="table">

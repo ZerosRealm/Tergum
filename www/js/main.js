@@ -1,4 +1,4 @@
-var webSocket = new WebSocket("ws://127.0.0.1/ws", "1");
+var webSocket = new WebSocket("ws://127.0.0.1/ws");
 var cache = {
     currentPage: "index",
     repos: [],
@@ -42,6 +42,59 @@ function showSuccess(msg) {
         <button style='margin-left: 5px;' type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>`)
     $("#alerts").append(newAlert)
+}
+
+function hasInvalidFields(form) {
+    let foundInvalid = false
+    $(form+" input[required]").each(function(i){
+        if ($(this).val() == "") {
+            foundInvalid = true
+            invalidateField(this)
+        }
+    });
+
+    return foundInvalid
+}
+
+function invalidateField(elem) {
+    $(elem).addClass("invalid")
+
+    let maxSearch = 5
+    let invalidFeedback = null
+
+    let search = $(`.invalid-feedback[for="`+$(elem).attr("name")+`"]`)
+    console.log(search)
+    if (search.length != 0) {
+        invalidFeedback = search
+    }
+
+    while (invalidFeedback == null || !$(invalidFeedback).hasClass("invalid-feedback")) {
+        if (maxSearch == 0) {
+            break
+        }
+
+        if (invalidFeedback == null) {
+            invalidFeedback = $(elem)[0].nextElementSibling
+        } else {
+            invalidFeedback = $(invalidFeedback)[0].nextElementSibling
+        }
+        
+        maxSearch--
+    }
+    $(invalidFeedback).show()
+}
+
+function closeModal(modal) {
+    $(modal+` input, `+modal+` textarea`).val("")
+
+    $(modal).append($(`<button class="d-none" data-bs-toggle="collapse" data-bs-target="`+modal+`" type="button"></button>`))
+    $(modal+` button[data-bs-toggle="collapse"]`).click()
+    $(modal+` button[data-bs-toggle="collapse"]`).remove()
+}
+
+function resetInvalidForms() {
+    $(".form-control.invalid").removeClass("invalid")
+    $(".invalid-feedback").hide()
 }
 
 var gConfirmFunc = null

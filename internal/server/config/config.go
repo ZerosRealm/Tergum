@@ -1,9 +1,9 @@
 package config
 
 import (
-	_ "embed"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/jinzhu/configor"
 )
@@ -17,22 +17,30 @@ type Config struct {
 	Restic string
 }
 
-//go:embed config.yml
-var defaultConfig []byte
-
 // Load config.
 func Load() Config {
-	if _, err := os.Stat("config.yml"); os.IsNotExist(err) {
-		f, err := os.Create("config.yml")
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer f.Close()
-		f.Write(defaultConfig)
+	var conf Config
+	if _, err := os.Stat("config.yml"); !os.IsNotExist(err) {
+		configor.Load(&conf, "config.yml")
 	}
 
-	var conf Config
-	configor.Load(&conf, "config.yml")
+	ip := os.Getenv("TERGUM_IP")
+	port := os.Getenv("TERGUM_PORT")
+	restic := os.Getenv("TERGUM_RESTIC")
+
+	if ip != "" {
+		conf.Listen.IP = ip
+	}
+	if port != "" {
+		num, err := strconv.Atoi(port)
+		if err != nil {
+			log.Fatal("TERGUM_PORT is not an integer")
+		}
+		conf.Listen.Port = num
+	}
+	if restic != "" {
+		conf.Restic = restic
+	}
 
 	if conf.Listen.IP == "" {
 		conf.Listen.IP = "127.0.0.1"

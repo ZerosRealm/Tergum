@@ -2,10 +2,11 @@ FROM debian:latest
 
 RUN mkdir /data
 
-#COPY config.yml /data/config.yml
 COPY agent /data/agent
 
 RUN apt update && apt install openssl ca-certificates -y
+RUN apt install restic -y
+RUN restic self-update
 
 RUN chmod +x /data/agent
 

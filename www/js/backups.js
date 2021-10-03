@@ -26,13 +26,26 @@ function gotBackups(data) {
 }
 
 function newBackup() {
-    let repo = $("#backups .card select[name='repo']").val()
-    let source = $("#backups .card input[name='source']").val()
-    let schedule = $("#backups .card input[name='schedule']").val()
-    let exclude = $("#backups .card textarea[name='exclude']").val().split('\n')
-
+    resetInvalidForms()
+    let repo = $("#newBackup .card select[name='repo']").val()
+    let source = $("#newBackup .card input[name='source']").val()
+    let schedule = $("#newBackup .card input[name='schedule']").val()
+    let exclude = $("#newBackup .card textarea[name='exclude']").val().split('\n')
+    
+    let repoInvalid = false
     if (repo == -1) {
-        showError("You need to select a repository.")
+        repoInvalid = true
+        invalidateField("#newBackup .card select[name='repo']")
+    }
+    
+    const regex = /(28|\*) (2|\*) (7|\*) (1|\*) (1|\*)/gm;
+    let scheduleInvalid = false
+    if (!regex.test(schedule)) {
+        scheduleInvalid = true
+        invalidateField("#newBackup .card input[name='schedule']")
+    }
+
+    if (hasInvalidFields("#newBackup .card") || scheduleInvalid || repoInvalid) {
         return
     }
 
@@ -48,6 +61,7 @@ function newBackup() {
         exclude: exclude,
     };
     webSocket.send(JSON.stringify(msg));
+    closeModal("#newBackup")
 }
 
 function prepareNewBackup() {

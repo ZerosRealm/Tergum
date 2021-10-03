@@ -29,10 +29,15 @@ function gotRepos(data) {
 }
 
 function newRepo() {
-    let name = $("#repos .card input[name='name']").val()
-    let repo = $("#repos .card input[name='repo']").val()
-    let password = $("#repos .card input[name='password']").val()
-    let settings = $("#repos .card textarea[name='settings']").val().split('\n')
+    resetInvalidForms()
+    let name = $("#newRepo .card input[name='name']").val()
+    let repo = $("#newRepo .card input[name='repo']").val()
+    let password = $("#newRepo .card input[name='password']").val()
+    let settings = $("#newRepo .card textarea[name='settings']").val().split('\n')
+
+    if (hasInvalidFields("#newRepo .card")) {
+        return
+    }
 
     if (settings.length == 1 && settings[0] == "") {
         settings = []
@@ -46,6 +51,7 @@ function newRepo() {
         settings: settings,
     };
     webSocket.send(JSON.stringify(msg));
+    closeModal("#newRepo")
 }
 
 function editRepo(id) {
@@ -161,7 +167,7 @@ function prepareRestore(id) {
 
     let data = null
     cache.snapshots.data.forEach(snapshot => {
-        if (snapshot.ID == id) {
+        if (snapshot.id == id) {
             data = snapshot
         }
     });

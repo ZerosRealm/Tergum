@@ -1,0 +1,29 @@
+stages:
+  - build
+  - docker
+
+build:
+  stage: build
+  image: golang:17-bullseye
+  script:
+    - go build cmd\agent\*
+    - go build cmd\server\*
+  artifacts:
+    paths:
+      - agent
+      - server
+
+server:
+  stage: docker
+  script:
+    - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
+    - docker build -f dockerfiles\server -t $CI_REGISTRY/zerosrealm/tergum:latest .
+    - docker image push $CI_REGISTRY/zerosrealm/tergum:latest
+
+agent:
+  stage: docker
+  script:
+    - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
+    - docker build -f dockerfiles\agent -t $CI_REGISTRY/zerosrealm/tergum-agent:latest .
+    - docker image push $CI_REGISTRY/zerosrealm/tergum-agent:latest
+

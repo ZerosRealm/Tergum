@@ -7,7 +7,7 @@ const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 
 
 function generatePSK() {
     let psk = $("#agents .card input[name='psk']")
-    psk.val(genRanHex(32))
+    psk.val(genRanHex(64))
 }
 
 function gotAgents(data) {
@@ -34,10 +34,15 @@ function gotAgents(data) {
 }
 
 function newAgent() {
-    let name = $("#agents .card input[name='name']").val()
-    let ip = $("#agents .card input[name='ip']").val()
-    let port = $("#agents .card input[name='port']").val()
-    let psk = $("#agents .card input[name='psk']").val()
+    resetInvalidForms()
+    let name = $("#newAgent .card input[name='name']").val()
+    let ip = $("#newAgent .card input[name='ip']").val()
+    let port = $("#newAgent .card input[name='port']").val()
+    let psk = $("#newAgent .card input[name='psk']").val()
+
+    if (hasInvalidFields("#newAgent .card")) {
+        return
+    }
 
     var msg = {
         type: "newagent",
@@ -48,6 +53,7 @@ function newAgent() {
     };
     console.log(msg)
     webSocket.send(JSON.stringify(msg));
+    closeModal("#newAgent")
 }
 
 function editAgent(id) {

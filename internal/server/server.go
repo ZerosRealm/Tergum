@@ -341,7 +341,6 @@ func update(w http.ResponseWriter, req *http.Request) {
 
 	select {
 	case wsWrite <- body:
-	default:
 	}
 
 	w.WriteHeader(http.StatusOK)

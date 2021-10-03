@@ -65,26 +65,34 @@
                         </div>
                     </div>
 
-                    <!-- <h2>Backups</h2> -->
                     <button class="btn btn-primary" type="button" onclick="prepareNewBackup()" data-bs-toggle="collapse" data-bs-target="#newBackup" aria-expanded="false" aria-controls="newBackup">
                         New
                     </button>
                     <div class="collapse mt-3" id="newBackup">
                         <div class="card card-body">
-                            <label class="form-label">Repo</label>
-                            <select name="repo" class="searchbox" style="width: 100%;""></select>
+                            <label class="form-label">Repository</label>
+                            <select name="repo" class="form-control searchbox" style="width: 100%;""></select>
+                            <div class="invalid-feedback">
+                                Please select a repository.
+                            </div>
 
                             <label class="form-label mt-3">Source</label>
-                            <input type="text" class="form-control" name="source" placeholder="source">
+                            <input type="text" class="form-control" name="source" placeholder="Source" required>
+                            <div class="invalid-feedback">
+                                Please provide a source.
+                            </div>
                             
                             <label class="form-label mt-3">Schdule</label>
                             <input type="text" class="form-control" name="schedule" placeholder="* * * * *">
+                            <div class="invalid-feedback">
+                                Please provide a valid schedule.
+                            </div>
 
                             <label class="form-label mt-3">Exclude</label>
                             <textarea class="form-control" name="exclude" rows="3"></textarea>
                             <span><i><b>Note:</b> new line for each exclusion</i></span>
 
-                            <button class="btn btn-primary mt-3" onclick="newBackup()" data-bs-toggle="collapse" data-bs-target="#newBackup" type="button">Save</button>
+                            <button class="btn btn-primary mt-3" onclick="newBackup()" type="button">Save</button>
                         </div>
                     </div>
                     <table class="table">
