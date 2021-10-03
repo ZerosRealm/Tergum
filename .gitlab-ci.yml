@@ -4,7 +4,7 @@ stages:
 
 build:
   stage: build
-  image: golang:17-bullseye
+  image: golang:1.17-bullseye
   script:
     - go build cmd\agent\*
     - go build cmd\server\*
