@@ -6,8 +6,8 @@ build:
   stage: build
   image: golang:1.17-bullseye
   script:
-    - go build -trimpath cmd\agent\ -o agent
-    - go build -trimpath cmd\server\ -o server
+    - go build -trimpath -o agent cmd\agent\
+    - go build -trimpath -o server cmd\server\
   artifacts:
     paths:
       - agent
