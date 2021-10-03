@@ -4,7 +4,7 @@ stages:
 
 build:
   stage: build
-  image: golang:1.17-bullseye
+  image: golang:1.16-buster
   script:
     - go build -trimpath -o agent cmd\agent\
     - go build -trimpath -o server cmd\server\
