@@ -4,10 +4,10 @@ stages:
 
 build:
   stage: build
-  image: golang:1.17-bullseye
+  image: golang:1.17-buster
   script:
-    - go build cmd\agent\
-    - go build cmd\server\
+    - go build -trimpath cmd\agent\
+    - go build -trimpath cmd\server\
   artifacts:
     paths:
       - agent
