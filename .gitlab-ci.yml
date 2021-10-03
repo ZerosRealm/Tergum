@@ -6,8 +6,8 @@ build:
   stage: build
   image: golang:1.16-buster
   script:
-    - go build -trimpath -o agent cmd\agent\
-    - go build -trimpath -o server cmd\server\
+    - go build -trimpath cmd/agent
+    - go build -trimpath cmd/server
   artifacts:
     paths:
       - agent
