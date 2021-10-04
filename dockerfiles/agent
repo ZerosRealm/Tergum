@@ -2,12 +2,11 @@ FROM debian:latest
 
 RUN mkdir /data
 
-COPY agent /data/agent
-
 RUN apt update && apt install openssl ca-certificates -y
 RUN apt install restic -y
 RUN restic self-update
 
+COPY agent /data/agent
 RUN chmod +x /data/agent
 
 WORKDIR /data
