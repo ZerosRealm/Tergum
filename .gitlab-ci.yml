@@ -26,6 +26,6 @@ agent:
   script:
     - docker logout $CI_REGISTRY
     - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
-    - docker build -f dockerfiles/agent -t $CI_REGISTRY/zerosrealm/tergum-test:latest .
-    - docker image push $CI_REGISTRY/zerosrealm/tergum-test:latest
+    - docker build -f dockerfiles/agent -t $CI_REGISTRY/zerosrealm/tergumagent:latest .
+    - docker image push $CI_REGISTRY/zerosrealm/tergumagent:latest
 
