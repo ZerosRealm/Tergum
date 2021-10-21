@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -19,14 +20,10 @@ import (
 var conf config.Config
 var resticExe *restic.Restic
 
-var updates = make(chan []byte, 100)
-
 func updateHandler() {
 	for {
 		select {
-		case msg := <-updates:
-			log.Println("received update!")
-
+		case msg := <-resticExe.Updates:
 			req, err := http.NewRequest("POST", conf.Server+"update", bytes.NewReader(msg))
 			if err != nil {
 				log.Println(err)
@@ -40,7 +37,16 @@ func updateHandler() {
 				log.Println(err)
 				continue
 			}
-			log.Println("Sent update, status:", resp.StatusCode)
+			defer resp.Body.Close()
+
+			if resp.StatusCode != 200 {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					log.Println("update failed:", resp.Status, "body read error:", err)
+					continue
+				}
+				log.Println("update failed:", resp.Status, string(body))
+			}
 		default:
 		}
 	}
@@ -50,38 +56,38 @@ func handleConnection(c net.Conn) {
 	log.Printf("serving %s\n", c.RemoteAddr().String())
 	defer c.Close()
 
-	var data types.JobPacket
+	var packet types.JobPacket
 	dec := gob.NewDecoder(c)
-	err := dec.Decode(&data)
+	err := dec.Decode(&packet)
 
 	if err != nil {
 		log.Println("error:", err)
 		return
 	}
 
-	if data.ID == "" {
+	if packet.ID == "" {
 		log.Println("invalid job")
 		return
 	}
 
-	if data.Agent.PSK != conf.PSK {
+	if packet.Agent.PSK != conf.PSK {
 		log.Println("job PSK does not match")
 		return
 	}
 
-	switch data.Type {
+	switch packet.Type {
 	case "backup":
 		var job types.BackupJob
-		dec := gob.NewDecoder(bytes.NewReader(data.Job))
+		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
 		err := dec.Decode(&job)
 
 		if err != nil {
-			spew.Dump(data.Job)
+			spew.Dump(packet.Data)
 			panic(err)
 		}
 
-		log.Println("running job", data.ID)
-		out, err := resticExe.Backup(data.Repo.Repo, job.Backup.Source, data.Repo.Password, job.Backup.Exclude, data.ID, updates, data.Repo.Settings...)
+		log.Println("running job", packet.ID)
+		out, err := resticExe.Backup(packet.Repo.Repo, job.Backup.Source, packet.Repo.Password, job.Backup.Exclude, packet.ID, packet.Repo.Settings...)
 		if err != nil {
 			log.Println("job error:", err, "out:", string(out))
 			return
@@ -90,17 +96,17 @@ func handleConnection(c net.Conn) {
 		log.Println("job output:", string(out))
 	case "restore":
 		var job types.RestoreJob
-		dec := gob.NewDecoder(bytes.NewReader(data.Job))
+		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
 		err := dec.Decode(&job)
 
 		if err != nil {
-			spew.Dump(data.Job)
+			spew.Dump(packet.Data)
 			panic(err)
 		}
 
-		log.Println("running job", data.ID)
-		out, err := resticExe.Restore(data.Repo.Repo, data.Repo.Password, job.Snapshot,
-			job.Target, job.Include, job.Exclude, data.Repo.Settings...)
+		log.Println("running job", packet.ID)
+		out, err := resticExe.Restore(packet.Repo.Repo, packet.Repo.Password, job.Snapshot,
+			job.Target, job.Include, job.Exclude, packet.Repo.Settings...)
 		if err != nil {
 			log.Println("job error:", err, "out:", string(out))
 			return
@@ -109,7 +115,7 @@ func handleConnection(c net.Conn) {
 		log.Println("job output:", string(out))
 
 	default:
-		log.Println("job", data.ID, "has unknown job type")
+		log.Println("job", packet.ID, "has unknown job type")
 	}
 }
 

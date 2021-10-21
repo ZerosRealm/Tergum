@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -10,26 +9,24 @@ import (
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
-var jobQueue = make(chan types.JobPacket, 100)
-
-func enqueue(job types.JobPacket) bool {
+func (man *Manager) enqueue(job types.JobPacket) bool {
 	select {
-	case jobQueue <- job:
+	case man.jobQueue <- job:
 		return true
 	default:
 		return false
 	}
 }
 
-func queueHandler(ctx context.Context) {
+func (man *Manager) queueHandler() {
 	for {
 		select {
-		case <-ctx.Done():
+		case <-man.ctx.Done():
 			log.Println("queueHandler canceled.")
 			return
 
-		case job := <-jobQueue:
-			if ctx.Err() != nil {
+		case job := <-man.jobQueue:
+			if man.ctx.Err() != nil {
 				return
 			}
 			log.Println("sending job", job.ID, "to", job.Agent.Name)

@@ -35,11 +35,18 @@ type persistentData struct {
 	// Schedules []*schedule
 }
 
+type Server struct {
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+
+	manager *Manager
+	conf    *config.Config
+}
+
 var savedData = persistentData{}
 var resticExe *restic.Restic
 
 var wsConnections = make(map[string]*websocket.Conn)
-var wsWrite = make(chan []byte, 100)
 
 func closeWS(c *websocket.Conn) {
 	key := c.RemoteAddr().String()
@@ -50,32 +57,10 @@ func closeWS(c *websocket.Conn) {
 	c.Close()
 }
 
-func wsWriter(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("wsWriter canceled.")
-			return
-		case msg := <-wsWrite:
-			if ctx.Err() != nil {
-				return
-			}
-			for _, c := range wsConnections {
-				err := c.WriteMessage(websocket.TextMessage, msg)
-				if err != nil {
-					log.Println("wsWriter:", err)
-					continue
-				}
-			}
-		default:
-		}
-	}
-}
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 } // use default options
-func ws(w http.ResponseWriter, req *http.Request) {
+func (srv *Server) ws(w http.ResponseWriter, req *http.Request) {
 	c, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -103,7 +88,6 @@ func ws(w http.ResponseWriter, req *http.Request) {
 			msgType = v
 		default:
 			log.Println("message type data sent was invalid")
-			break
 		}
 
 		var resp []byte
@@ -130,7 +114,7 @@ func ws(w http.ResponseWriter, req *http.Request) {
 
 			resp = msg
 		case "newbackup":
-			msg, err := newBackup(data)
+			msg, err := srv.newBackup(data)
 			if err != nil {
 				log.Println(err)
 			}
@@ -151,7 +135,7 @@ func ws(w http.ResponseWriter, req *http.Request) {
 
 			resp = msg
 		case "updatebackup":
-			msg, err := updateBackup(data)
+			msg, err := srv.updateBackup(data)
 			if err != nil {
 				log.Println(err)
 			}
@@ -214,7 +198,7 @@ func ws(w http.ResponseWriter, req *http.Request) {
 
 			resp = msg
 		case "restoresnapshot":
-			msg, err := restoreSnapshot(data)
+			msg, err := srv.restoreSnapshot(data)
 			if err != nil {
 				log.Println(err)
 			}
@@ -228,7 +212,7 @@ func ws(w http.ResponseWriter, req *http.Request) {
 
 			resp = msg
 		case "getjobs":
-			msg, err := getJobs()
+			msg, err := srv.getJobs()
 			if err != nil {
 				log.Println(err)
 			}
@@ -293,81 +277,93 @@ func saveData() {
 	enc.Encode(savedData)
 }
 
-func update(w http.ResponseWriter, req *http.Request) {
-	authHeader := req.Header.Get("authorization")
-	auth := strings.SplitN(authHeader, " ", 2)
-	if len(auth) != 2 || strings.ToLower(auth[0]) != "psk" {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
-	psk := auth[1]
-	access := false
-	for _, agent := range savedData.Agents {
-		if agent.PSK == psk {
-			access = true
+func (srv *Server) update() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("authorization")
+		auth := strings.SplitN(authHeader, " ", 2)
+		if len(auth) != 2 || strings.ToLower(auth[0]) != "psk" {
+			w.WriteHeader(http.StatusForbidden)
+			return
 		}
+
+		psk := auth[1]
+		access := false
+		for _, agent := range savedData.Agents {
+			if agent.PSK == psk {
+				access = true
+				break
+			}
+		}
+
+		if !access {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+
+		var data map[string]interface{}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		jobMsg, err := json.Marshal(data["msg"])
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		jobID := data["job"].(string)
+		savedData.Jobs[jobID] = jobMsg
+
+		srv.manager.updateProgress(jobID, jobMsg)
+		srv.manager.WriteWS(body)
+
+		w.WriteHeader(http.StatusOK)
 	}
-
-	if !access {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	var data map[string]interface{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	jobMsg, err := json.Marshal(data["msg"])
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	jobID := data["job"].(string)
-	savedData.Jobs[jobID] = jobMsg
-
-	select {
-	case wsWrite <- body:
-	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
-// StartServer to serve HTTP.
-func StartServer(conf *config.Config) {
+func New(conf *config.Config) *Server {
+	ctx, cancel := context.WithCancel(context.Background())
+	man := NewManager(ctx)
+	srv := &Server{
+		ctx:       ctx,
+		ctxCancel: cancel,
+		manager:   man,
+		conf:      conf,
+	}
+	return srv
+}
+
+// Start to serve HTTP.
+func (srv *Server) Start() {
 	loadData()
 	defer saveData()
 
-	buildSchedules()
-
-	if conf.Restic == "" {
+	if srv.conf.Restic == "" {
 		log.Fatal("no path to restic defined - exiting")
 	}
 
-	resticExe = restic.New(conf.Restic)
+	resticExe = restic.New(srv.conf.Restic)
+	go srv.manager.Start()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go queueHandler(ctx)
-	go wsWriter(ctx)
+	buildSchedules(srv.manager)
 
 	http.Handle("/", http.FileServer(http.Dir("www")))
-	http.HandleFunc("/ws", ws)
-	http.HandleFunc("/update", update)
+	http.HandleFunc("/ws", srv.ws)
+	http.HandleFunc("/update", srv.update())
 
-	server := &http.Server{Addr: fmt.Sprintf("%s:%d", conf.Listen.IP, conf.Listen.Port)}
+	server := &http.Server{Addr: fmt.Sprintf("%s:%d", srv.conf.Listen.IP, srv.conf.Listen.Port)}
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -380,9 +376,9 @@ func StartServer(conf *config.Config) {
 	signal.Notify(stop, os.Interrupt)
 
 	<-stop
-	defer cancel()
+	defer srv.ctxCancel()
 	defer stopSchedulers()
-	if err := server.Shutdown(ctx); err != nil && err != context.DeadlineExceeded {
+	if err := server.Shutdown(srv.ctx); err != nil && err != context.DeadlineExceeded {
 		log.Fatal(err)
 	}
 

@@ -2,13 +2,11 @@ package server
 
 import (
 	"bytes"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/rs/xid"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
@@ -85,7 +83,7 @@ func getAgents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func newBackup(data map[string]interface{}) ([]byte, error) {
+func (srv *Server) newBackup(data map[string]interface{}) ([]byte, error) {
 	var target int
 	switch v := data["target"].(type) {
 	case int:
@@ -129,7 +127,7 @@ func newBackup(data map[string]interface{}) ([]byte, error) {
 
 	savedData.Backups = append(savedData.Backups, &backup)
 
-	addSchedule(schedule, &backup)
+	addSchedule(schedule, srv.manager, &backup)
 
 	return encodeMessage("New backup added!", "success"), nil
 }
@@ -336,7 +334,7 @@ func updateRepo(data map[string]interface{}) ([]byte, error) {
 	return encodeMessage("Repo updated!", "success"), nil
 }
 
-func updateBackup(data map[string]interface{}) ([]byte, error) {
+func (srv *Server) updateBackup(data map[string]interface{}) ([]byte, error) {
 	var id int
 	switch v := data["id"].(type) {
 	case int:
@@ -397,7 +395,7 @@ func updateBackup(data map[string]interface{}) ([]byte, error) {
 			schedule := getSchedule(foundBackup.ID)
 
 			if schedule == nil {
-				addSchedule(v, foundBackup)
+				addSchedule(v, srv.manager, foundBackup)
 				break
 			}
 			schedule.newScheduler(v)
@@ -753,13 +751,27 @@ func updateSubscribers(data map[string]interface{}) ([]byte, error) {
 	return encodeMessage("Subscribed to backup!", "updateSubscribers"), nil
 }
 
-func getJobs() ([]byte, error) {
+func (srv *Server) getJobs() ([]byte, error) {
 	jobs := make(map[string]interface{})
 	jobs["type"] = "getjobs"
-	jobs["jobs"] = make(map[string][]byte)
 
-	for job, data := range savedData.Jobs {
-		jobs["jobs"].(map[string][]byte)[job] = data
+	type JobStatus struct {
+		ID        string          `json:"ID"`
+		StartTime time.Time       `json:"startTime"`
+		EndTime   time.Time       `json:"endTime"`
+		Msg       json.RawMessage `json:"msg"`
+	}
+	jobs["jobs"] = make(map[string]JobStatus)
+
+	for _, job := range srv.manager.Jobs {
+		newJob := JobStatus{
+			ID:        job.ID,
+			StartTime: job.StartTime,
+			EndTime:   job.EndTime,
+			Msg:       job.Progress,
+		}
+
+		jobs["jobs"].(map[string]JobStatus)[job.ID] = newJob
 	}
 
 	var buf = bytes.NewBufferString("")
@@ -819,7 +831,7 @@ func getSnapshots(data map[string]interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func restoreSnapshot(data map[string]interface{}) ([]byte, error) {
+func (srv *Server) restoreSnapshot(data map[string]interface{}) ([]byte, error) {
 	var repoID int
 	switch v := data["repo"].(type) {
 	case int:
@@ -908,13 +920,11 @@ func restoreSnapshot(data map[string]interface{}) ([]byte, error) {
 		return encodeError(msg), fmt.Errorf(msg)
 	}
 
-	id := xid.New().String()
-
-	job := types.JobPacket{}
-	job.ID = id
-	job.Type = "restore"
-	job.Agent = foundAgent
-	job.Repo = foundRepo
+	job := types.JobPacket{
+		Type:  "restore",
+		Agent: foundAgent,
+		Repo:  foundRepo,
+	}
 
 	restoreJob := types.RestoreJob{
 		Snapshot: snapshot,
@@ -923,22 +933,11 @@ func restoreSnapshot(data map[string]interface{}) ([]byte, error) {
 		Exclude:  exclude,
 	}
 
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(restoreJob)
-
+	id, err := srv.manager.NewJob(&job, &restoreJob)
 	if err != nil {
-		spew.Dump(restoreJob)
-		panic(err)
+		return encodeError(err.Error()), err
 	}
-	job.Job = buf.Bytes()
-
 	log.Printf("enqueuing job %s for %s\n", id, foundAgent.Name)
-	ok := enqueue(job)
-	if !ok {
-		msg := fmt.Sprintf("job %s could not be enqueued\n", id)
-		return encodeError(msg), fmt.Errorf(msg)
-	}
 
 	return encodeMessage("Restore job sent to agent.", "success"), nil
 }

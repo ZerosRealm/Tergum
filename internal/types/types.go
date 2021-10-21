@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 // Repo for storing repository information.
 type Repo struct {
 	ID       int
@@ -16,6 +18,7 @@ type Backup struct {
 	Source   string
 	Schedule string
 	Exclude  []string
+	LastRun  time.Time
 }
 
 // Agent to send jobs to.
@@ -30,11 +33,11 @@ type Agent struct {
 // JobPacket to send to agents.
 type JobPacket struct {
 	ID    string
-	Type  string
 	Repo  *Repo
 	Agent *Agent
 
-	Job []byte
+	Type string
+	Data interface{}
 }
 
 // BackupJob to send to an agent.

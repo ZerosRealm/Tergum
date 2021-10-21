@@ -5,27 +5,32 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Restic executable.
 type Restic struct {
-	exe string
+	exe     string
+	Updates chan []byte
 }
 
 // New restic instance.
 func New(exePath string) *Restic {
 	return &Restic{
-		exe: exePath,
+		exe:     exePath,
+		Updates: make(chan []byte, 100),
 	}
 }
 
+// Restic JSON struct
+// https://github.com/restic/restic/blob/master/internal/ui/backup/json.go#L198
+
 // TODO: Add cancelation?
 // Backup source to target repo.
-func (r *Restic) Backup(repo, source, password string, exclude []string, jobID string, updates chan []byte, env ...string) ([]byte, error) {
+func (r *Restic) Backup(repo, source, password string, exclude []string, jobID string, env ...string) ([]byte, error) {
 	args := []string{
 		"backup",
 		"--json",
@@ -34,7 +39,7 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 		source,
 	}
 
-	if exclude != nil && len(exclude) != 0 {
+	if len(exclude) != 0 {
 		for _, val := range exclude {
 			args = append(args, "--exclude")
 			args = append(args, val)
@@ -47,9 +52,7 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
-	for _, env := range env {
-		cmd.Env = append(cmd.Env, env)
-	}
+	cmd.Env = append(cmd.Env, env...)
 
 	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
@@ -59,6 +62,10 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 	reader := bufio.NewReader(cmdReader)
 
 	go func() {
+		if r.Updates == nil {
+			return
+		}
+
 		for {
 			data, err := reader.ReadBytes('\n')
 			if err != nil {
@@ -75,6 +82,7 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 			var msg = make(map[string]interface{})
 			msg["type"] = "jobProgress"
 			msg["job"] = jobID
+			msg["time"] = time.Now().Unix()
 			msg["msg"] = vData
 
 			msgJSON, err := json.Marshal(&msg)
@@ -83,8 +91,7 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 			}
 
 			select {
-			case updates <- msgJSON:
-				log.Println("sent update")
+			case r.Updates <- msgJSON:
 			default:
 			}
 		}
@@ -96,27 +103,7 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 		return nil, err
 	}
 
-	return []byte("Done!!!!!"), nil
-}
-
-// Backup source to target repo.
-func (r *Restic) oldBackup(repo, source, password string, env ...string) ([]byte, error) {
-	args := []string{
-		"backup",
-		"--repo",
-		repo,
-		source,
-	}
-
-	cmd := exec.Command(r.exe, args...)
-
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
-	for _, env := range env {
-		cmd.Env = append(cmd.Env, env)
-	}
-
-	return cmd.CombinedOutput()
+	return []byte("Done"), nil
 }
 
 // Restore snapshot to target.
@@ -144,9 +131,7 @@ func (r *Restic) Restore(repo, password, snapshot, target, include, exclude stri
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
-	for _, env := range env {
-		cmd.Env = append(cmd.Env, env)
-	}
+	cmd.Env = append(cmd.Env, env...)
 
 	return cmd.CombinedOutput()
 }
@@ -174,9 +159,7 @@ func (r *Restic) Snapshots(repo, password string, env ...string) ([]Snapshot, er
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
-	for _, env := range env {
-		cmd.Env = append(cmd.Env, env)
-	}
+	cmd.Env = append(cmd.Env, env...)
 
 	out, err := cmd.CombinedOutput()
 
@@ -210,12 +193,10 @@ func (r *Restic) Forget(repo, password, snapshot string, policies []string, env 
 	args = append(args, "--repo")
 	args = append(args, repo)
 
-	if policies != nil && len(policies) > 0 {
+	if len(policies) > 0 {
 		for _, policy := range policies {
 			split := strings.SplitN(policy, " ", 2)
-			for _, str := range split {
-				args = append(args, str)
-			}
+			args = append(args, split...)
 		}
 	}
 
@@ -223,9 +204,7 @@ func (r *Restic) Forget(repo, password, snapshot string, policies []string, env 
 
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
-	for _, env := range env {
-		cmd.Env = append(cmd.Env, env)
-	}
+	cmd.Env = append(cmd.Env, env...)
 
 	return cmd.CombinedOutput()
 }

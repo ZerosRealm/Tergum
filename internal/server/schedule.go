@@ -1,13 +1,9 @@
 package server
 
 import (
-	"bytes"
-	"encoding/gob"
 	"log"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/robfig/cron/v3"
-	"github.com/rs/xid"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
@@ -15,24 +11,24 @@ type schedule struct {
 	Backup    *types.Backup
 	Schedule  string
 	Scheduler *cron.Cron
+
+	manager *Manager
 }
 
 var schedules = []*schedule{}
 
-func buildSchedules() {
+func buildSchedules(manager *Manager) {
 	for _, backup := range savedData.Backups {
-		addSchedule(backup.Schedule, backup)
+		addSchedule(backup.Schedule, manager, backup)
 	}
 }
 
 func scheduleBackup(schedule *schedule) {
 	for _, agent := range savedData.BackupSubscribers[schedule.Backup.ID] {
-		id := xid.New().String()
-
-		job := types.JobPacket{}
-		job.ID = id
-		job.Type = "backup"
-		job.Agent = agent
+		job := types.JobPacket{
+			Type:  "backup",
+			Agent: agent,
+		}
 
 		var foundRepo *types.Repo
 		for _, repo := range savedData.Repos {
@@ -52,21 +48,12 @@ func scheduleBackup(schedule *schedule) {
 			Backup: schedule.Backup,
 		}
 
-		buf := bytes.NewBuffer(nil)
-		enc := gob.NewEncoder(buf)
-		err := enc.Encode(backupJob)
-
+		id, err := schedule.manager.NewJob(&job, &backupJob)
 		if err != nil {
-			spew.Dump(backupJob)
-			panic(err)
-		}
-		job.Job = buf.Bytes()
-
-		log.Printf("enqueuing job %s for %s\n", id, agent.Name)
-		ok := enqueue(job)
-		if !ok {
 			log.Printf("job %s could not be enqueued\n", id)
+			return
 		}
+		log.Printf("enqueuing job %s for %s\n", id, agent.Name)
 	}
 }
 
@@ -89,9 +76,10 @@ func getSchedules(cronSchedule string) []*schedule {
 	return matches
 }
 
-func addSchedule(cronSchedule string, backup *types.Backup) *schedule {
+func addSchedule(cronSchedule string, manager *Manager, backup *types.Backup) *schedule {
 	schedule := schedule{
-		Backup: backup,
+		Backup:  backup,
+		manager: manager,
 	}
 
 	schedule.newScheduler(cronSchedule)

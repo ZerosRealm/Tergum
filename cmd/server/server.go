@@ -11,5 +11,6 @@ func main() {
 	log.Println("starting server")
 	conf := config.Load()
 
-	server.StartServer(&conf)
+	server := server.New(&conf)
+	server.Start()
 }

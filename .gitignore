@@ -24,3 +24,4 @@ config.yml
 !internal/*/*/config.yml
 agent.ps1
 restic.exe
+.vscode
