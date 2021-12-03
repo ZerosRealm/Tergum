@@ -2,6 +2,10 @@ stages:
   - build
   - docker
 
+variables:
+  server-image: $CI_REGISTRY/zerosrealm/tergum/tergum:latest
+  agent-image: $CI_REGISTRY/zerosrealm/tergum/tergum-agent:latest
+
 build:
   stage: build
   image: golang:1.17-bullseye
@@ -19,8 +23,8 @@ agent:
     - export DOCKER_BUILDKIT=1
     - docker logout $CI_REGISTRY
     - docker login -u $DEPLOY_USER -p $DEPLOY_PASSWORD $CI_REGISTRY
-    - docker build -f dockerfiles/agent -t $CI_REGISTRY/$CI_PROJECT_PATH/tergum-agent:latest .
-    - docker image push $CI_REGISTRY/$CI_PROJECT_PATH/tergum-agent:latest
+    - docker build -f dockerfiles/agent -t $agent-image .
+    - docker image push $agent-image
 
 server:
   stage: docker
@@ -28,6 +32,6 @@ server:
     - export DOCKER_BUILDKIT=1
     - docker logout $CI_REGISTRY
     - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
-    - docker build -f dockerfiles/server -t $CI_REGISTRY/$CI_PROJECT_PATH/tergum:latest .
-    - docker image push $CI_REGISTRY/$CI_PROJECT_PATH/tergum:latest
+    - docker build -f dockerfiles/server -t $server-image .
+    - docker image push $server-image
 
