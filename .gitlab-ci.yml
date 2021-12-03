@@ -3,8 +3,8 @@ stages:
   - docker
 
 variables:
-  server-image: $CI_REGISTRY/zerosrealm/tergum/tergum:latest
-  agent-image: $CI_REGISTRY/zerosrealm/tergum/tergum-agent:latest
+  server_image: $CI_REGISTRY/zerosrealm/tergum/tergum:latest
+  agent_image: $CI_REGISTRY/zerosrealm/tergum/tergum-agent:latest
 
 build:
   stage: build
@@ -23,8 +23,8 @@ agent:
     - export DOCKER_BUILDKIT=1
     - docker logout $CI_REGISTRY
     - docker login -u $DEPLOY_USER -p $DEPLOY_PASSWORD $CI_REGISTRY
-    - docker build -f dockerfiles/agent -t $agent-image .
-    - docker image push $agent-image
+    - docker build -f dockerfiles/agent -t $agent_image .
+    - docker image push $agent_image
 
 server:
   stage: docker
@@ -32,6 +32,6 @@ server:
     - export DOCKER_BUILDKIT=1
     - docker logout $CI_REGISTRY
     - docker login -u $CI_DEPLOY_USER -p $CI_DEPLOY_PASSWORD $CI_REGISTRY
-    - docker build -f dockerfiles/server -t $server-image .
-    - docker image push $server-image
+    - docker build -f dockerfiles/server -t $server_image .
+    - docker image push $server_image
 
