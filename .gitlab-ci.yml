@@ -9,6 +9,8 @@ variables:
 build:
   stage: build
   image: golang:1.17-bullseye
+  only:
+    - main
   script:
     - go build -trimpath ./cmd/agent
     - go build -trimpath ./cmd/server
@@ -19,6 +21,8 @@ build:
 
 agent:
   stage: docker
+  only:
+    - main
   script:
     - export DOCKER_BUILDKIT=1
     - docker logout $CI_REGISTRY
@@ -28,6 +32,8 @@ agent:
 
 server:
   stage: docker
+  only:
+    - main
   script:
     - export DOCKER_BUILDKIT=1
     - docker logout $CI_REGISTRY
