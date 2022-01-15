@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -20,11 +22,22 @@ import (
 var conf config.Config
 var resticExe *restic.Restic
 
+var jobs = make(map[string]*restic.Job)
+
 func updateHandler() {
+	type jobProgress struct {
+		Msg json.RawMessage `json:"msg"`
+	}
 	for {
 		select {
-		case msg := <-resticExe.Updates:
-			req, err := http.NewRequest("POST", conf.Server+"update", bytes.NewReader(msg))
+		case update := <-resticExe.Updates:
+			msg, err := json.Marshal(jobProgress{Msg: update.Msg})
+			if err != nil {
+				log.Println("error marshalling update:", err)
+				continue
+			}
+
+			req, err := http.NewRequest("POST", conf.Server+"api/job/"+update.ID+"/progress", bytes.NewReader(msg))
 			if err != nil {
 				log.Println(err)
 				continue
@@ -47,6 +60,11 @@ func updateHandler() {
 				}
 				log.Println("update failed:", resp.Status, string(body))
 			}
+		case job := <-resticExe.Jobs:
+			if _, ok := jobs[job.ID]; ok {
+				return
+			}
+			jobs[job.ID] = job
 		default:
 		}
 	}
@@ -61,7 +79,7 @@ func handleConnection(c net.Conn) {
 	err := dec.Decode(&packet)
 
 	if err != nil {
-		log.Println("error:", err)
+		log.Println("reading conn error:", err)
 		return
 	}
 
@@ -113,6 +131,25 @@ func handleConnection(c net.Conn) {
 		}
 
 		log.Println("job output:", string(out))
+		delete(jobs, packet.ID)
+	case "stop":
+		var job types.StopJob
+		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
+		err := dec.Decode(&job)
+
+		if err != nil {
+			spew.Dump(packet.Data)
+			panic(err)
+		}
+
+		log.Println("stopping job", packet.ID)
+		resticJob, ok := jobs[packet.ID]
+		if !ok {
+			log.Println("job not found")
+			return
+		}
+		resticJob.Cancel()
+		delete(jobs, packet.ID)
 
 	default:
 		log.Println("job", packet.ID, "has unknown job type")
@@ -143,14 +180,17 @@ func main() {
 	defer l.Close()
 	rand.Seed(time.Now().Unix())
 
-	resticExe = restic.New(conf.Restic)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	resticExe = restic.New(ctx, conf.Restic)
 
 	go updateHandler()
 
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("listener:", err)
 			return
 		}
 		go handleConnection(c)

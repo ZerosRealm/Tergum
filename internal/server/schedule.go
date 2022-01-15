@@ -23,7 +23,7 @@ func buildSchedules(manager *Manager) {
 	}
 }
 
-func scheduleBackup(schedule *schedule) {
+func (schedule *schedule) start() {
 	for _, agent := range savedData.BackupSubscribers[schedule.Backup.ID] {
 		job := types.JobPacket{
 			Type:  "backup",
@@ -98,7 +98,7 @@ func (sch *schedule) newScheduler(cronSchedule string) {
 	sch.Scheduler = scheduler
 
 	scheduler.AddFunc(cronSchedule, func() {
-		scheduleBackup(sch)
+		sch.start()
 	})
 
 	scheduler.Start()
