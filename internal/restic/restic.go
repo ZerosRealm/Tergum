@@ -3,25 +3,40 @@ package restic
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 // Restic executable.
 type Restic struct {
 	exe     string
-	Updates chan []byte
+	ctx     context.Context
+	Jobs    chan *Job
+	Updates chan JobUpdate
+}
+
+type Job struct {
+	ID     string
+	ctx    context.Context
+	Cancel context.CancelFunc
+}
+
+type JobUpdate struct {
+	ID  string
+	Msg json.RawMessage
 }
 
 // New restic instance.
-func New(exePath string) *Restic {
+func New(ctx context.Context, exePath string) *Restic {
 	return &Restic{
 		exe:     exePath,
-		Updates: make(chan []byte, 100),
+		ctx:     ctx,
+		Jobs:    make(chan *Job, 100),
+		Updates: make(chan JobUpdate, 100),
 	}
 }
 
@@ -61,37 +76,47 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 
 	reader := bufio.NewReader(cmdReader)
 
+	// Create a job.
+	job := &Job{
+		ID: jobID,
+	}
+	ctx, cancel := context.WithCancel(r.ctx)
+	defer cancel()
+	job.ctx = ctx
+	job.Cancel = cancel
+
+	r.Jobs <- job
+
 	go func() {
 		if r.Updates == nil {
 			return
 		}
 
 		for {
+			select {
+			case <-job.ctx.Done():
+				err := cmd.Process.Signal(os.Interrupt)
+				if err != nil {
+					cmd.Process.Signal(os.Kill)
+				}
+
+				return
+			default:
+			}
+
 			data, err := reader.ReadBytes('\n')
 			if err != nil {
 				break
 			}
 			data = bytes.Replace(data[5:], []byte("\n"), []byte(""), -1)
 
-			var vData map[string]interface{}
-			err = json.Unmarshal(data, &vData)
-			if err != nil {
-				panic(err)
-			}
-
-			var msg = make(map[string]interface{})
-			msg["type"] = "jobProgress"
-			msg["job"] = jobID
-			msg["time"] = time.Now().Unix()
-			msg["msg"] = vData
-
-			msgJSON, err := json.Marshal(&msg)
-			if err != nil {
-				panic(err)
+			update := JobUpdate{
+				ID:  jobID,
+				Msg: json.RawMessage(data),
 			}
 
 			select {
-			case r.Updates <- msgJSON:
+			case r.Updates <- update:
 			default:
 			}
 		}

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,18 +18,9 @@ import (
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
-type Job struct {
-	ID       string
-	Packet   types.JobPacket
-	Progress json.RawMessage
-
-	StartTime time.Time
-	EndTime   time.Time
-}
-
 type Manager struct {
 	ctx       context.Context
-	Jobs      []Job
+	Jobs      []*types.Job
 	jobsMutex *sync.Mutex
 
 	wsWrite  chan []byte
@@ -37,7 +30,7 @@ type Manager struct {
 func NewManager(ctx context.Context) *Manager {
 	return &Manager{
 		ctx:       ctx,
-		Jobs:      make([]Job, 0),
+		Jobs:      make([]*types.Job, 0),
 		jobsMutex: &sync.Mutex{},
 
 		wsWrite:  make(chan []byte, 100),
@@ -83,9 +76,12 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 		}
 	}
 
-	job := Job{
-		ID:        id,
-		Packet:    *packet,
+	job := &types.Job{
+		ID:      id,
+		Done:    false,
+		Aborted: false,
+
+		Packet:    packet,
 		StartTime: time.Now(),
 	}
 	man.Jobs = append(man.Jobs, job)
@@ -99,23 +95,74 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 	return id, nil
 }
 
-func (man *Manager) updateProgress(id string, msg []byte) {
+func (man *Manager) updateJobProgress(job *types.Job, data []byte) {
 	man.jobsMutex.Lock()
 	defer man.jobsMutex.Unlock()
+	job.Progress = json.RawMessage(data)
 
-	index := -1
-	for i, job := range man.Jobs {
-		if job.ID == id {
-			index = i
-			break
-		}
+	var msgType struct {
+		MessageType string `json:"message_type"`
 	}
-
-	if index == -1 {
+	err := json.Unmarshal(data, &msgType)
+	// TODO: Add proper logging
+	if err != nil {
+		log.Println("job update:", err)
 		return
 	}
 
-	man.Jobs[index].Progress = msg
+	switch msgType.MessageType {
+	case "summary":
+		job.Done = true
+		job.EndTime = time.Now()
+	case "error":
+		// TODO: Add proper logging
+		log.Println("job error:", string(data))
+		job.Aborted = true
+	}
+}
+
+func (man *Manager) getJob(id string) *types.Job {
+	for _, job := range man.Jobs {
+		if strings.EqualFold(job.ID, id) {
+			return job
+		}
+	}
+
+	return nil
+}
+
+func (man *Manager) stopJob(job *types.Job) error {
+	packet := job.Packet
+	packet.Type = "stop"
+
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(types.StopJob{
+		ID: job.ID,
+	})
+
+	if err != nil {
+		return err
+	}
+	packet.Data = buf.Bytes()
+
+	agentAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", packet.Agent.IP, packet.Agent.Port))
+	if err != nil {
+		return err
+	}
+
+	conn, err := net.DialTCP("tcp4", nil, agentAddr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	enc = gob.NewEncoder(conn)
+	enc.Encode(packet)
+	spew.Dump(packet)
+
+	log.Println(job.ID, "successfully sent to", packet.Agent.Name)
+	return nil
 }
 
 func (man *Manager) wsWriter() {
