@@ -15,13 +15,14 @@
 # vendor/
 
 # Things I use for local testing
+.vscode
 backup
-winscp.txt
 data
 agent.yml
-!internal/*/*/agent.yml
 config.yml
-!internal/*/*/config.yml
-agent.ps1
 restic.exe
-.vscode
+
+!internal/**/agent
+!internal/**/config
+!internal/**/backup
+!internal/**/data

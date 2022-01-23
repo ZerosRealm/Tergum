@@ -13,5 +13,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/mattn/go-sqlite3 v1.14.10 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
