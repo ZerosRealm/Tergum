@@ -21,6 +21,7 @@ data
 agent.yml
 config.yml
 restic.exe
+*.db
 
 !internal/**/agent
 !internal/**/config

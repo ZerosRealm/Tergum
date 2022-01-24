@@ -16,19 +16,20 @@ import (
 	"github.com/gorilla/websocket"
 	"zerosrealm.xyz/tergum/internal/restic"
 	"zerosrealm.xyz/tergum/internal/server/config"
+	"zerosrealm.xyz/tergum/internal/server/service"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
 type persistentData struct {
 	Mutex sync.Mutex
 
-	Repos   []*types.Repo
-	Agents  []*types.Agent
-	Backups []*types.Backup
+	// Repos   []*types.Repo
+	// Agents  []*types.Agent
+	// Backups []*types.Backup
 
-	RepoIncrement   int
-	AgentIncrement  int
-	BackupIncrement int
+	// RepoIncrement   int
+	// AgentIncrement  int
+	// BackupIncrement int
 
 	BackupSubscribers map[int][]*types.Agent
 
@@ -37,9 +38,24 @@ type persistentData struct {
 	// Schedules []*schedule
 }
 
+type Services struct {
+	repoSvc   service.RepoService
+	agentSvc  service.AgentService
+	backupSvc service.BackupService
+}
+
+func NewServices(repoSvc *service.RepoService, agentSvc *service.AgentService, backupSvc *service.BackupService) *Services {
+	return &Services{
+		repoSvc:   *repoSvc,
+		agentSvc:  *agentSvc,
+		backupSvc: *backupSvc,
+	}
+}
+
 type Server struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
+	services  *Services
 
 	manager *Manager
 	conf    *config.Config
@@ -63,15 +79,15 @@ func closeWS(c *websocket.Conn) {
 }
 
 func prepareSavedData() {
-	if savedData.Agents == nil {
-		savedData.Agents = make([]*types.Agent, 0)
-	}
-	if savedData.Backups == nil {
-		savedData.Backups = make([]*types.Backup, 0)
-	}
-	if savedData.Repos == nil {
-		savedData.Repos = make([]*types.Repo, 0)
-	}
+	// if savedData.Agents == nil {
+	// 	savedData.Agents = make([]*types.Agent, 0)
+	// }
+	// if savedData.Backups == nil {
+	// 	savedData.Backups = make([]*types.Backup, 0)
+	// }
+	// if savedData.Repos == nil {
+	// 	savedData.Repos = make([]*types.Repo, 0)
+	// }
 	if savedData.BackupSubscribers == nil {
 		savedData.BackupSubscribers = make(map[int][]*types.Agent)
 	}
@@ -111,12 +127,13 @@ func saveData() {
 	enc.Encode(savedData)
 }
 
-func New(conf *config.Config) *Server {
+func New(conf *config.Config, services *Services) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
-	man := NewManager(ctx)
+	man := NewManager(ctx, services)
 	srv := &Server{
 		ctx:       ctx,
 		ctxCancel: cancel,
+		services:  services,
 		manager:   man,
 		conf:      conf,
 		router:    mux.NewRouter(),

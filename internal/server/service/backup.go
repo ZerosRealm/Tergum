@@ -23,20 +23,20 @@ type BackupStorage interface {
 }
 
 type BackupService struct {
-	cache   *BackupCache
-	storage *BackupStorage
+	cache   BackupCache
+	storage BackupStorage
 }
 
 func NewBackupService(cache *BackupCache, storage *BackupStorage) *BackupService {
 	return &BackupService{
-		cache:   cache,
-		storage: storage,
+		cache:   *cache,
+		storage: *storage,
 	}
 }
 
 func (svc *BackupService) Get(id []byte) (*types.Backup, error) {
 	if svc.cache != nil {
-		backup, err := (*svc.cache).Get(id)
+		backup, err := svc.cache.Get(id)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,7 @@ func (svc *BackupService) Get(id []byte) (*types.Backup, error) {
 		}
 	}
 
-	backup, err := (*svc.storage).Get(id)
+	backup, err := svc.storage.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (svc *BackupService) Get(id []byte) (*types.Backup, error) {
 
 func (svc *BackupService) GetAll() ([]*types.Backup, error) {
 	if svc.cache != nil {
-		backups, err := (*svc.cache).GetAll()
+		backups, err := svc.cache.GetAll()
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +65,7 @@ func (svc *BackupService) GetAll() ([]*types.Backup, error) {
 		}
 	}
 
-	backups, err := (*svc.storage).GetAll()
+	backups, err := svc.storage.GetAll()
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +73,13 @@ func (svc *BackupService) GetAll() ([]*types.Backup, error) {
 }
 
 func (svc *BackupService) Create(backup *types.Backup) (*types.Backup, error) {
-	backup, err := (*svc.storage).Create(backup)
+	backup, err := svc.storage.Create(backup)
 	if err != nil {
 		return nil, err
 	}
 
 	if svc.cache != nil {
-		err = (*svc.cache).Add(backup)
+		err = (svc.cache).Add(backup)
 		if err != nil {
 			return nil, err
 		}
@@ -89,14 +89,14 @@ func (svc *BackupService) Create(backup *types.Backup) (*types.Backup, error) {
 }
 
 func (svc *BackupService) Update(backup *types.Backup) (*types.Backup, error) {
-	backup, err := (*svc.storage).Update(backup)
+	backup, err := svc.storage.Update(backup)
 	if err != nil {
 		return nil, err
 	}
 
 	if svc.cache != nil {
 		id := strconv.Itoa(backup.ID)
-		err = (*svc.cache).Invalidate([]byte(id))
+		err = (svc.cache).Invalidate([]byte(id))
 		if err != nil {
 			return nil, err
 		}
@@ -106,13 +106,13 @@ func (svc *BackupService) Update(backup *types.Backup) (*types.Backup, error) {
 }
 
 func (svc *BackupService) Delete(id []byte) error {
-	err := (*svc.storage).Delete(id)
+	err := svc.storage.Delete(id)
 	if err != nil {
 		return err
 	}
 
 	if svc.cache != nil {
-		err = (*svc.cache).Invalidate(id)
+		err = (svc.cache).Invalidate(id)
 		if err != nil {
 			return err
 		}

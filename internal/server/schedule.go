@@ -17,9 +17,16 @@ type schedule struct {
 
 var schedules = []*schedule{}
 
-func buildSchedules(manager *Manager) {
-	for _, backup := range savedData.Backups {
-		addSchedule(backup.Schedule, manager, backup)
+func buildSchedules(man *Manager) {
+	backups, err := man.services.backupSvc.GetAll()
+	if err != nil {
+		// TODO: Implement proper logging.
+		log.Println(err)
+		return
+	}
+
+	for _, backup := range backups {
+		addSchedule(backup.Schedule, man, backup)
 	}
 }
 
@@ -30,8 +37,16 @@ func (schedule *schedule) start() {
 			Agent: agent,
 		}
 
+		repos, err := schedule.manager.services.repoSvc.GetAll()
+		if err != nil {
+			// TODO: Implement proper logging.
+			log.Println(err)
+			continue
+		}
+
+		// TODO: Use filtering.
 		var foundRepo *types.Repo
-		for _, repo := range savedData.Repos {
+		for _, repo := range repos {
 			if repo.ID == schedule.Backup.Target {
 				foundRepo = repo
 				break

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"database/sql"
+	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
 	"zerosrealm.xyz/tergum/internal/types"
@@ -57,7 +58,11 @@ func (s *sqliteStorage) Get(id []byte) (*types.Agent, error) {
 	var agent types.Agent
 
 	var exists bool
-	row := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM agents WHERE id = ?)", id)
+	intID, err := strconv.Atoi(string(id))
+	if err != nil {
+		return nil, err
+	}
+	row := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM agents WHERE id = ?)", intID)
 	if err := row.Scan(&exists); err != nil {
 		return nil, err
 	}
@@ -66,7 +71,7 @@ func (s *sqliteStorage) Get(id []byte) (*types.Agent, error) {
 		return nil, nil
 	}
 
-	err := s.db.QueryRow(`SELECT id, name, ip, port, psk FROM agents WHERE id = ?`, id).Scan(
+	err = s.db.QueryRow(`SELECT id, name, ip, port, psk FROM agents WHERE id = ?`, intID).Scan(
 		&agent.ID,
 		&agent.Name,
 		&agent.IP,
@@ -132,12 +137,16 @@ func (s *sqliteStorage) Create(agent *types.Agent) (*types.Agent, error) {
 }
 
 func (s *sqliteStorage) Update(agent *types.Agent) (*types.Agent, error) {
-	_, err := s.db.Exec(`UPDATE agents SET name = ?, ip = ?, port = ?, psk = ? WHERE id = ?`,
+	intID, err := strconv.Atoi(string(agent.ID))
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.db.Exec(`UPDATE agents SET name = ?, ip = ?, port = ?, psk = ? WHERE id = ?`,
 		agent.Name,
 		agent.IP,
 		agent.Port,
 		agent.PSK,
-		agent.ID,
+		intID,
 	)
 	if err != nil {
 		return nil, err
@@ -147,7 +156,12 @@ func (s *sqliteStorage) Update(agent *types.Agent) (*types.Agent, error) {
 }
 
 func (s *sqliteStorage) Delete(id []byte) error {
-	_, err := s.db.Exec(`DELETE FROM agents WHERE id = ?`, id)
+	intID, err := strconv.Atoi(string(id))
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(`DELETE FROM agents WHERE id = ?`, intID)
 	if err != nil {
 		return err
 	}

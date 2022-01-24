@@ -8,13 +8,20 @@ import (
 	"github.com/jinzhu/configor"
 )
 
+type dbConfig struct {
+	Driver         string `default:"memory"`
+	DataSourceName string `default:""`
+}
+
 // Config for storing settings.
 type Config struct {
 	Listen struct {
 		IP   string
 		Port int
 	}
-	Restic string
+	Restic   string
+	Cache    string
+	Database dbConfig
 }
 
 // Load config.

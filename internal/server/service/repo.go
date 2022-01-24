@@ -23,20 +23,20 @@ type RepoStorage interface {
 }
 
 type RepoService struct {
-	cache   *RepoCache
-	storage *RepoStorage
+	cache   RepoCache
+	storage RepoStorage
 }
 
 func NewRepoService(cache *RepoCache, storage *RepoStorage) *RepoService {
 	return &RepoService{
-		cache:   cache,
-		storage: storage,
+		cache:   *cache,
+		storage: *storage,
 	}
 }
 
 func (svc *RepoService) Get(id []byte) (*types.Repo, error) {
 	if svc.cache != nil {
-		repo, err := (*svc.cache).Get(id)
+		repo, err := svc.cache.Get(id)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +46,7 @@ func (svc *RepoService) Get(id []byte) (*types.Repo, error) {
 		}
 	}
 
-	repo, err := (*svc.storage).Get(id)
+	repo, err := svc.storage.Get(id)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (svc *RepoService) Get(id []byte) (*types.Repo, error) {
 
 func (svc *RepoService) GetAll() ([]*types.Repo, error) {
 	if svc.cache != nil {
-		repos, err := (*svc.cache).GetAll()
+		repos, err := svc.cache.GetAll()
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +65,7 @@ func (svc *RepoService) GetAll() ([]*types.Repo, error) {
 		}
 	}
 
-	repos, err := (*svc.storage).GetAll()
+	repos, err := svc.storage.GetAll()
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +73,13 @@ func (svc *RepoService) GetAll() ([]*types.Repo, error) {
 }
 
 func (svc *RepoService) Create(repo *types.Repo) (*types.Repo, error) {
-	repo, err := (*svc.storage).Create(repo)
+	repo, err := svc.storage.Create(repo)
 	if err != nil {
 		return nil, err
 	}
 
 	if svc.cache != nil {
-		err = (*svc.cache).Add(repo)
+		err = svc.cache.Add(repo)
 		if err != nil {
 			return nil, err
 		}
@@ -89,14 +89,14 @@ func (svc *RepoService) Create(repo *types.Repo) (*types.Repo, error) {
 }
 
 func (svc *RepoService) Update(repo *types.Repo) (*types.Repo, error) {
-	repo, err := (*svc.storage).Update(repo)
+	repo, err := svc.storage.Update(repo)
 	if err != nil {
 		return nil, err
 	}
 
 	if svc.cache != nil {
 		id := strconv.Itoa(repo.ID)
-		err = (*svc.cache).Invalidate([]byte(id))
+		err = svc.cache.Invalidate([]byte(id))
 		if err != nil {
 			return nil, err
 		}
@@ -106,13 +106,13 @@ func (svc *RepoService) Update(repo *types.Repo) (*types.Repo, error) {
 }
 
 func (svc *RepoService) Delete(id []byte) error {
-	err := (*svc.storage).Delete(id)
+	err := svc.storage.Delete(id)
 	if err != nil {
 		return err
 	}
 
 	if svc.cache != nil {
-		err = (*svc.cache).Invalidate(id)
+		err = svc.cache.Invalidate(id)
 		if err != nil {
 			return err
 		}

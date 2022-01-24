@@ -22,16 +22,18 @@ type Manager struct {
 	ctx       context.Context
 	Jobs      []*types.Job
 	jobsMutex *sync.Mutex
+	services  *Services
 
 	wsWrite  chan []byte
 	jobQueue chan types.JobPacket
 }
 
-func NewManager(ctx context.Context) *Manager {
+func NewManager(ctx context.Context, services *Services) *Manager {
 	return &Manager{
 		ctx:       ctx,
 		Jobs:      make([]*types.Job, 0),
 		jobsMutex: &sync.Mutex{},
+		services:  services,
 
 		wsWrite:  make(chan []byte, 100),
 		jobQueue: make(chan types.JobPacket, 100),
@@ -65,12 +67,18 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 
 		// Check if it's a valid backup
 		if backupPacket.Backup.Schedule == "" {
-			return id, fmt.Errorf("backup data is empty")
+			return id, fmt.Errorf("manager newJob: job %s error: backup data is empty", id)
 		}
 
-		for i, backup := range savedData.Backups {
+		backups, err := man.services.backupSvc.GetAll()
+		if err != nil {
+			return id, fmt.Errorf("manager newJob: job %s error: %w", id, err)
+		}
+
+		for _, backup := range backups {
 			if backup.ID == backupPacket.Backup.ID {
-				savedData.Backups[i].LastRun = time.Now()
+				backup.LastRun = time.Now()
+				man.services.backupSvc.Update(backup)
 				break
 			}
 		}

@@ -18,16 +18,18 @@ func (srv *Server) getBackups() http.HandlerFunc {
 		Backups []*types.Backup `json:"backups"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
 
-		resp := response{
-			Backups: make([]*types.Backup, 0),
+		backups, err := srv.services.backupSvc.GetAll()
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
 		}
 
-		resp.Backups = append(resp.Backups, savedData.Backups...)
+		if backups == nil {
+			backups = make([]*types.Backup, 0)
+		}
 
-		srv.respond(w, r, resp, 200)
+		srv.respond(w, r, &response{Backups: backups}, 200)
 	}
 }
 
@@ -41,9 +43,6 @@ func (srv *Server) createBackup() http.HandlerFunc {
 		Backup *types.Backup `json:"backup"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
@@ -51,16 +50,21 @@ func (srv *Server) createBackup() http.HandlerFunc {
 			return
 		}
 
-		savedData.BackupIncrement++
 		backup := &types.Backup{
-			ID:       savedData.BackupIncrement,
 			Target:   req.Target,
 			Source:   req.Source,
 			Schedule: req.Schedule,
 			Exclude:  []string{},
 		}
 
-		savedData.Backups = append(savedData.Backups, backup)
+		backup, err = srv.services.backupSvc.Create(backup)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		// TODO: validate schedule/cron syntax
+		// Better place for this?
 		addSchedule(req.Schedule, srv.manager, backup)
 
 		r.Header.Add("Location", fmt.Sprintf("/backup/%d", backup.ID))
@@ -79,9 +83,6 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 		Backup *types.Backup `json:"backup"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		backupID := vars["id"]
 
@@ -92,76 +93,74 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 			return
 		}
 
-		id, err := strconv.Atoi(backupID)
+		// var foundBackup *types.Backup
+		// for _, backup := range savedData.Backups {
+		// 	if backup.ID == id {
+		// 		foundBackup = backup
+		// 		break
+		// 	}
+		// }
+
+		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundBackup *types.Backup
-		for _, backup := range savedData.Backups {
-			if backup.ID == id {
-				foundBackup = backup
-				break
-			}
+		if backup == nil {
+			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
+			return
 		}
 
 		status := http.StatusOK
-		if foundBackup == nil {
-			foundBackup = &types.Backup{
-				ID: id,
-			}
-			status = http.StatusCreated
-			savedData.BackupIncrement++
-			savedData.Backups = append(savedData.Backups, foundBackup)
-		}
+		// TODO: Create a backup with the given ID if it does not exist
+		// if backup == nil {
+		// 	backup = &types.Backup{
+		// 		ID: id,
+		// 	}
+		// 	status = http.StatusCreated
+		// 	savedData.Backups = append(savedData.Backups, foundBackup)
+		// }
 
-		foundBackup.Target = req.Target
-		foundBackup.Source = req.Source
-		foundBackup.Schedule = req.Schedule
-		foundBackup.Exclude = req.Exclude
+		backup.Target = req.Target
+		backup.Source = req.Source
+		backup.Schedule = req.Schedule
+		backup.Exclude = req.Exclude
 
 		// TODO: validate schedule/cron syntax
-		schedule := getSchedule(foundBackup.ID)
+		schedule := getSchedule(backup.ID)
 		if schedule == nil {
-			addSchedule(foundBackup.Schedule, srv.manager, foundBackup)
+			addSchedule(backup.Schedule, srv.manager, backup)
 		} else {
-			schedule.newScheduler(foundBackup.Schedule)
+			schedule.newScheduler(backup.Schedule)
 		}
 
-		srv.respond(w, r, response{Backup: foundBackup}, status)
+		srv.respond(w, r, response{Backup: backup}, status)
 	}
 }
 
 func (srv *Server) deleteBackup() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		backupID := vars["id"]
 
-		id, err := strconv.Atoi(backupID)
+		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		index := -1
-		for i, backup := range savedData.Backups {
-			if backup.ID == id {
-				index = i
-				break
-			}
-		}
-
-		if index == -1 {
+		if backup == nil {
 			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
 
-		savedData.Backups = append(savedData.Backups[:index], savedData.Backups[index+1:]...)
-		removeSchedule(id)
+		err = srv.services.backupSvc.Delete([]byte(backupID))
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+		removeSchedule(backup.ID)
 
 		srv.respond(w, r, nil, http.StatusNoContent)
 	}
@@ -172,16 +171,17 @@ func (srv *Server) getRepos() http.HandlerFunc {
 		Repos []*types.Repo `json:"repos"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
-		resp := response{
-			Repos: make([]*types.Repo, 0),
+		repos, err := srv.services.repoSvc.GetAll()
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
 		}
 
-		resp.Repos = append(resp.Repos, savedData.Repos...)
+		if repos == nil {
+			repos = make([]*types.Repo, 0)
+		}
 
-		srv.respond(w, r, resp, http.StatusOK)
+		srv.respond(w, r, &response{Repos: repos}, http.StatusOK)
 	}
 }
 
@@ -196,9 +196,6 @@ func (srv *Server) createRepo() http.HandlerFunc {
 		Repo *types.Repo `json:"repo"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
@@ -206,15 +203,18 @@ func (srv *Server) createRepo() http.HandlerFunc {
 			return
 		}
 
-		savedData.RepoIncrement++
 		repo := &types.Repo{
-			ID:       savedData.RepoIncrement,
 			Name:     req.Name,
 			Repo:     req.Repo,
 			Password: req.Password,
 			Settings: req.Settings,
 		}
-		savedData.Repos = append(savedData.Repos, repo)
+
+		repo, err = srv.services.repoSvc.Create(repo)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		r.Header.Add("Location", fmt.Sprintf("/repo/%d", repo.ID))
 		srv.respond(w, r, response{Repo: repo}, http.StatusCreated)
@@ -232,9 +232,6 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 		Repo *types.Repo `json:"repo"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		repoID := vars["id"]
 
@@ -245,67 +242,58 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 			return
 		}
 
-		id, err := strconv.Atoi(repoID)
+		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundRepo *types.Repo
-		for _, repo := range savedData.Repos {
-			if repo.ID == id {
-				foundRepo = repo
-				break
-			}
+		if repo == nil {
+			srv.error(w, r, fmt.Errorf("no repo with that ID"), http.StatusNotFound)
+			return
 		}
 
 		status := http.StatusOK
-		if foundRepo == nil {
-			foundRepo = &types.Repo{
-				ID: id,
-			}
-			status = http.StatusCreated
-			savedData.RepoIncrement++
-			savedData.Repos = append(savedData.Repos, foundRepo)
-		}
+		// TODO: Create a repo with the given ID if it does not exist
+		// if foundRepo == nil {
+		// 	foundRepo = &types.Repo{
+		// 		ID: id,
+		// 	}
+		// 	status = http.StatusCreated
+		// 	savedData.RepoIncrement++
+		// 	savedData.Repos = append(savedData.Repos, foundRepo)
+		// }
 
-		foundRepo.Name = req.Name
-		foundRepo.Repo = req.Repo
-		foundRepo.Password = req.Password
-		foundRepo.Settings = req.Settings
+		repo.Name = req.Name
+		repo.Repo = req.Repo
+		repo.Password = req.Password
+		repo.Settings = req.Settings
 
-		srv.respond(w, r, response{Repo: foundRepo}, status)
+		srv.respond(w, r, response{Repo: repo}, status)
 	}
 }
 
 func (srv *Server) deleteRepo() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		repoID := vars["id"]
 
-		id, err := strconv.Atoi(repoID)
+		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		index := -1
-		for i, repo := range savedData.Repos {
-			if repo.ID == id {
-				index = i
-				break
-			}
-		}
-
-		if index == -1 {
+		if repo == nil {
 			srv.error(w, r, fmt.Errorf("no repo with that ID"), http.StatusNotFound)
 			return
 		}
 
-		savedData.Repos = append(savedData.Repos[:index], savedData.Repos[index+1:]...)
+		err = srv.services.repoSvc.Delete([]byte(repoID))
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		srv.respond(w, r, nil, http.StatusNoContent)
 	}
@@ -316,16 +304,17 @@ func (srv *Server) getAgents() http.HandlerFunc {
 		Agents []*types.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
-		resp := response{
-			Agents: make([]*types.Agent, 0),
+		agents, err := srv.services.agentSvc.GetAll()
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
 		}
 
-		resp.Agents = append(resp.Agents, savedData.Agents...)
+		if agents == nil {
+			agents = make([]*types.Agent, 0)
+		}
 
-		srv.respond(w, r, resp, http.StatusOK)
+		srv.respond(w, r, &response{Agents: agents}, http.StatusOK)
 	}
 }
 
@@ -340,9 +329,6 @@ func (srv *Server) createAgent() http.HandlerFunc {
 		Agent *types.Agent `json:"agent"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
@@ -350,15 +336,18 @@ func (srv *Server) createAgent() http.HandlerFunc {
 			return
 		}
 
-		savedData.AgentIncrement++
 		agent := &types.Agent{
-			ID:   savedData.AgentIncrement,
 			Name: req.Name,
 			PSK:  req.PSK,
 			IP:   req.IP,
 			Port: req.Port,
 		}
-		savedData.Agents = append(savedData.Agents, agent)
+
+		agent, err = srv.services.agentSvc.Create(agent)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		r.Header.Add("Location", fmt.Sprintf("/agent/%d", agent.ID))
 		srv.respond(w, r, response{Agent: agent}, http.StatusCreated)
@@ -376,9 +365,6 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 		Agent *types.Agent `json:"agent"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		agentID := vars["id"]
 
@@ -389,67 +375,58 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 			return
 		}
 
-		id, err := strconv.Atoi(agentID)
+		agent, err := srv.services.agentSvc.Get([]byte(agentID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundAgent *types.Agent
-		for _, agent := range savedData.Agents {
-			if agent.ID == id {
-				foundAgent = agent
-				break
-			}
+		if agent == nil {
+			srv.error(w, r, fmt.Errorf("no agent with that ID"), http.StatusNotFound)
+			return
 		}
 
 		status := http.StatusOK
-		if foundAgent == nil {
-			foundAgent = &types.Agent{
-				ID: id,
-			}
-			status = http.StatusCreated
-			savedData.AgentIncrement++
-			savedData.Agents = append(savedData.Agents, foundAgent)
-		}
+		// TODO: Create an agent with the given ID if it does not exist
+		// if foundAgent == nil {
+		// 	foundAgent = &types.Agent{
+		// 		ID: id,
+		// 	}
+		// 	status = http.StatusCreated
+		// 	savedData.AgentIncrement++
+		// 	savedData.Agents = append(savedData.Agents, foundAgent)
+		// }
 
-		foundAgent.Name = req.Name
-		foundAgent.PSK = req.PSK
-		foundAgent.IP = req.IP
-		foundAgent.Port = req.Port
+		agent.Name = req.Name
+		agent.PSK = req.PSK
+		agent.IP = req.IP
+		agent.Port = req.Port
 
-		srv.respond(w, r, response{Agent: foundAgent}, status)
+		srv.respond(w, r, response{Agent: agent}, status)
 	}
 }
 
 func (srv *Server) deleteAgent() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		agentID := vars["id"]
 
-		id, err := strconv.Atoi(agentID)
+		agent, err := srv.services.agentSvc.Get([]byte(agentID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		index := -1
-		for i, agent := range savedData.Agents {
-			if agent.ID == id {
-				index = i
-				break
-			}
-		}
-
-		if index == -1 {
-			srv.error(w, r, fmt.Errorf("no agent found with that ID"), http.StatusNotFound)
+		if agent == nil {
+			srv.error(w, r, fmt.Errorf("no agent with that ID"), http.StatusNotFound)
 			return
 		}
 
-		savedData.Agents = append(savedData.Agents[:index], savedData.Agents[index+1:]...)
+		err = srv.services.agentSvc.Delete([]byte(agentID))
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		srv.respond(w, r, nil, http.StatusNoContent)
 	}
@@ -457,33 +434,22 @@ func (srv *Server) deleteAgent() http.HandlerFunc {
 
 func (srv *Server) deleteSnapshot() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		repoID := vars["id"]
 		snapshot := vars["snapshot"]
 
-		id, err := strconv.Atoi(repoID)
+		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundRepo *types.Repo
-		for _, repo := range savedData.Repos {
-			if repo.ID == id {
-				foundRepo = repo
-				break
-			}
-		}
-
-		if foundRepo == nil {
-			srv.error(w, r, fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
+		if repo == nil {
+			srv.error(w, r, fmt.Errorf("no repo with that ID"), http.StatusNotFound)
 			return
 		}
 
-		out, err := resticExe.Forget(foundRepo.Repo, foundRepo.Password, snapshot, nil, foundRepo.Settings...)
+		out, err := resticExe.Forget(repo.Repo, repo.Password, snapshot, nil, repo.Settings...)
 		if err != nil {
 			srv.error(w, r, fmt.Errorf(string(out)), http.StatusInternalServerError)
 			return
@@ -504,26 +470,19 @@ func (srv *Server) getBackupAgents() http.HandlerFunc {
 		vars := mux.Vars(r)
 		backupID := vars["id"]
 
-		id, err := strconv.Atoi(backupID)
+		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		index := -1
-		for i, backup := range savedData.Backups {
-			if backup.ID == id {
-				index = i
-				break
-			}
-		}
-
-		if index == -1 {
-			srv.error(w, r, fmt.Errorf("no backup found with that ID"), http.StatusNotFound)
+		if backup == nil {
+			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
 
-		agents, ok := savedData.BackupSubscribers[id]
+		// TODO: Use a different service for this.
+		agents, ok := savedData.BackupSubscribers[backup.ID]
 		if !ok || agents == nil {
 			srv.respond(w, r, response{Agents: make([]*types.Agent, 0)}, http.StatusOK)
 			return
@@ -554,49 +513,39 @@ func (srv *Server) updateBackupAgents() http.HandlerFunc {
 			return
 		}
 
-		id, err := strconv.Atoi(backupID)
+		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundBackup *types.Backup
-		for _, backup := range savedData.Backups {
-			if backup.ID == id {
-				foundBackup = backup
-				break
-			}
-		}
-
-		if foundBackup == nil {
-			srv.error(w, r, fmt.Errorf("no backup found with that ID"), http.StatusNotFound)
+		if backup == nil {
+			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
-
-		agents, ok := savedData.BackupSubscribers[id]
+		subscribedAgents, ok := savedData.BackupSubscribers[backup.ID]
 		if !ok || len(req.Agents) == 0 {
-			agents = make([]*types.Agent, 0)
+			subscribedAgents = make([]*types.Agent, 0)
 		}
 
 		for _, agentID := range req.Agents {
-			var foundAgent *types.Agent
-			for _, agent := range savedData.Agents {
-				if agent.ID == agentID {
-					foundAgent = agent
-					break
-				}
-			}
-			if foundAgent == nil {
-				srv.error(w, r, fmt.Errorf("no agent found with that ID"), http.StatusNotFound)
+			agent, err := srv.services.agentSvc.Get([]byte(strconv.Itoa(agentID)))
+			if err != nil {
+				srv.error(w, r, err, http.StatusInternalServerError)
 				return
 			}
 
-			agents = append(agents, foundAgent)
+			if agent == nil {
+				srv.error(w, r, fmt.Errorf("no agent with the ID %d", agent.ID), http.StatusNotFound)
+				return
+			}
+
+			subscribedAgents = append(subscribedAgents, agent)
 		}
 
-		savedData.BackupSubscribers[id] = agents
+		savedData.BackupSubscribers[backup.ID] = subscribedAgents
 
-		srv.respond(w, r, response{Agents: agents}, http.StatusCreated)
+		srv.respond(w, r, response{Agents: subscribedAgents}, http.StatusCreated)
 	}
 }
 
@@ -661,7 +610,21 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 
 		psk := auth[1]
 		access := false
-		for _, agent := range savedData.Agents {
+
+		// TODO: Cache agent PSKs?
+		agents, err := srv.services.agentSvc.GetAll()
+		if err != nil {
+			// TODO: Log error
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		if agents == nil {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		for _, agent := range agents {
 			if agent.PSK == psk {
 				access = true
 				break
@@ -684,7 +647,7 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 		}
 
 		var req request
-		err := srv.decode(w, r, &req)
+		err = srv.decode(w, r, &req)
 		if err != nil {
 			srv.error(w, r, err, http.StatusBadRequest)
 			return
@@ -714,32 +677,21 @@ func (srv *Server) getSnapshots() http.HandlerFunc {
 		Snapshots []restic.Snapshot `json:"snapshots"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		repoID := vars["id"]
 
-		id, err := strconv.Atoi(repoID)
+		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundRepo *types.Repo
-		for _, repo := range savedData.Repos {
-			if repo.ID == id {
-				foundRepo = repo
-				break
-			}
-		}
-
-		if foundRepo == nil {
+		if repo == nil {
 			srv.error(w, r, fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
 			return
 		}
 
-		snapshots, err := resticExe.Snapshots(foundRepo.Repo, foundRepo.Password, foundRepo.Settings...)
+		snapshots, err := resticExe.Snapshots(repo.Repo, repo.Password, repo.Settings...)
 		if err != nil {
 			srv.error(w, r, err, http.StatusInternalServerError)
 			return
@@ -765,9 +717,6 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 		Job string `json:"job"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
-
 		vars := mux.Vars(r)
 		repoID := vars["id"]
 		snapshot := vars["snapshot"]
@@ -779,42 +728,27 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 			return
 		}
 
-		id, err := strconv.Atoi(repoID)
+		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var foundRepo *types.Repo
-		for _, repo := range savedData.Repos {
-			if repo.ID == id {
-				foundRepo = repo
-				break
-			}
-		}
-
-		if foundRepo == nil {
+		if repo == nil {
 			srv.error(w, r, fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
 			return
 		}
 
-		var foundAgent *types.Agent
-		for _, agent := range savedData.Agents {
-			if agent.ID == req.Agent {
-				foundAgent = agent
-				break
-			}
-		}
-
-		if foundAgent == nil {
-			srv.error(w, r, fmt.Errorf("no agent found with that ID"), http.StatusNotFound)
+		agent, err := srv.services.agentSvc.Get([]byte(strconv.Itoa(req.Agent)))
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
 		job := types.JobPacket{
 			Type:  "restore",
-			Agent: foundAgent,
-			Repo:  foundRepo,
+			Repo:  repo,
+			Agent: agent,
 		}
 
 		restoreJob := types.RestoreJob{
@@ -829,7 +763,7 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
-		log.Printf("enqueuing job %s for %s\n", jobID, foundAgent.Name)
+		log.Printf("enqueuing job %s for %s\n", jobID, agent.Name)
 
 		srv.respond(w, r, response{Job: jobID}, http.StatusOK)
 	}
@@ -839,8 +773,8 @@ func (srv *Server) template() http.HandlerFunc {
 	type request struct{}
 	type response struct{}
 	return func(w http.ResponseWriter, r *http.Request) {
-		savedData.Mutex.Lock()
-		defer savedData.Mutex.Unlock()
+		// savedData.Mutex.Lock()
+		// defer savedData.Mutex.Unlock()
 
 		// vars := mux.Vars(r)
 		// name := vars["project"]
