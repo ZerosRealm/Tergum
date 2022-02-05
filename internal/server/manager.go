@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"sync"
@@ -15,6 +14,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/websocket"
 	"github.com/rs/xid"
+
+	"zerosrealm.xyz/tergum/internal/log"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
@@ -24,16 +25,20 @@ type Manager struct {
 	jobsMutex *sync.Mutex
 	services  *Services
 
+	log *log.Logger
+
 	wsWrite  chan []byte
 	jobQueue chan types.JobPacket
 }
 
-func NewManager(ctx context.Context, services *Services) *Manager {
+func NewManager(ctx context.Context, services *Services, logger *log.Logger) *Manager {
 	return &Manager{
 		ctx:       ctx,
 		Jobs:      make([]*types.Job, 0),
 		jobsMutex: &sync.Mutex{},
 		services:  services,
+
+		log: logger.WithFields("component", "manager"),
 
 		wsWrite:  make(chan []byte, 100),
 		jobQueue: make(chan types.JobPacket, 100),
@@ -51,6 +56,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 
 	id := xid.New().String()
 	packet.ID = id
+	man.log.Debug("creating new job", id)
 
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
@@ -58,7 +64,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 
 	if err != nil {
 		spew.Dump(typePacket)
-		return id, err
+		return id, fmt.Errorf("manager.newJob: failed to encode job packet: %w", err)
 	}
 	packet.Data = buf.Bytes()
 
@@ -67,12 +73,12 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 
 		// Check if it's a valid backup
 		if backupPacket.Backup.Schedule == "" {
-			return id, fmt.Errorf("manager newJob: job %s error: backup data is empty", id)
+			return id, fmt.Errorf("manager.newJob: job %s error: backup data is empty", id)
 		}
 
 		backups, err := man.services.backupSvc.GetAll()
 		if err != nil {
-			return id, fmt.Errorf("manager newJob: job %s error: %w", id, err)
+			return id, fmt.Errorf("manager.newJob: job %s error: %w", id, err)
 		}
 
 		for _, backup := range backups {
@@ -96,8 +102,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 
 	ok := man.enqueue(*packet)
 	if !ok {
-		msg := fmt.Sprintf("job %s could not be enqueued\n", id)
-		return id, fmt.Errorf(msg)
+		return id, fmt.Errorf("manager.newJob: job %s could not be enqueued", id)
 	}
 
 	return id, nil
@@ -112,9 +117,8 @@ func (man *Manager) updateJobProgress(job *types.Job, data []byte) {
 		MessageType string `json:"message_type"`
 	}
 	err := json.Unmarshal(data, &msgType)
-	// TODO: Add proper logging
 	if err != nil {
-		log.Println("job update:", err)
+		man.log.WithFields("job", job.ID).Error("updateJobProgress: error unmarshalling data", err)
 		return
 	}
 
@@ -123,8 +127,7 @@ func (man *Manager) updateJobProgress(job *types.Job, data []byte) {
 		job.Done = true
 		job.EndTime = time.Now()
 	case "error":
-		// TODO: Add proper logging
-		log.Println("job error:", string(data))
+		man.log.WithFields("job", job.ID).Warn("updateJobProgress: restic returned error", string(data))
 		job.Aborted = true
 	}
 }
@@ -150,18 +153,18 @@ func (man *Manager) stopJob(job *types.Job) error {
 	})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("manager.stopJob: %w", err)
 	}
 	packet.Data = buf.Bytes()
 
 	agentAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", packet.Agent.IP, packet.Agent.Port))
 	if err != nil {
-		return err
+		return fmt.Errorf("manager.stopJob: %w", err)
 	}
 
 	conn, err := net.DialTCP("tcp4", nil, agentAddr)
 	if err != nil {
-		return err
+		return fmt.Errorf("manager.stopJob: %w", err)
 	}
 	defer conn.Close()
 
@@ -169,7 +172,7 @@ func (man *Manager) stopJob(job *types.Job) error {
 	enc.Encode(packet)
 	spew.Dump(packet)
 
-	log.Println(job.ID, "successfully sent to", packet.Agent.Name)
+	man.log.WithFields("job", job.ID).Debug("successfully sent to", packet.Agent.Name)
 	return nil
 }
 
@@ -177,16 +180,17 @@ func (man *Manager) wsWriter() {
 	for {
 		select {
 		case <-man.ctx.Done():
-			log.Println("wsWriter canceled.")
+			man.log.Debug("wsWriter canceled")
 			return
 		case msg := <-man.wsWrite:
 			if man.ctx.Err() != nil {
+				man.log.Debug("wsWriter canceled")
 				return
 			}
 			for _, c := range wsConnections {
 				err := c.WriteMessage(websocket.TextMessage, msg)
 				if err != nil {
-					log.Println("wsWriter:", err)
+					man.log.Error("wsWriter: ", err)
 					continue
 				}
 			}

@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/gob"
 	"fmt"
-	"log"
 	"net"
 
 	"zerosrealm.xyz/tergum/internal/types"
@@ -19,35 +18,39 @@ func (man *Manager) enqueue(job types.JobPacket) bool {
 }
 
 func (man *Manager) queueHandler() {
+	man.log.Debug("Starting queueHandler")
 	for {
 		select {
 		case <-man.ctx.Done():
-			log.Println("queueHandler canceled.")
+			man.log.Debug("queueHandler: canceled")
 			return
 
 		case job := <-man.jobQueue:
 			if man.ctx.Err() != nil {
 				return
 			}
-			log.Println("sending job", job.ID, "to", job.Agent.Name)
+			man.log.WithFields("job", job.ID).Debug("sending to", job.Agent.Name, "at", fmt.Sprintf("%s:%d", job.Agent.IP, job.Agent.Port))
 
 			agentAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", job.Agent.IP, job.Agent.Port))
 			if err != nil {
-				log.Println(err)
+				man.log.WithFields("job", job.ID).Error("queuehandler:", err)
 				continue
 			}
 
 			conn, err := net.DialTCP("tcp4", nil, agentAddr)
 			if err != nil {
-				log.Println(err)
+				man.log.WithFields("job", job.ID).Error("queuehandler:", err)
 				continue
 			}
 			defer conn.Close()
 
 			enc := gob.NewEncoder(conn)
-			enc.Encode(job)
+			err = enc.Encode(job)
+			if err != nil {
+				man.log.WithFields("job", job.ID).Error("queuehandler:", err)
+			}
 
-			log.Println(job.ID, "successfully sent to", job.Agent.Name)
+			man.log.WithFields("job", job.ID).Debug("successfully sent to", job.Agent.Name)
 		}
 	}
 }

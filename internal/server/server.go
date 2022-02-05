@@ -3,17 +3,17 @@ package server
 import (
 	"context"
 	_ "embed"
-	"encoding/gob"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"zerosrealm.xyz/tergum/internal/log"
 	"zerosrealm.xyz/tergum/internal/restic"
 	"zerosrealm.xyz/tergum/internal/server/config"
 	"zerosrealm.xyz/tergum/internal/server/service"
@@ -60,6 +60,7 @@ type Server struct {
 	manager *Manager
 	conf    *config.Config
 	router  *mux.Router
+	log     *log.Logger
 }
 
 var savedData = persistentData{
@@ -96,40 +97,17 @@ func prepareSavedData() {
 	}
 }
 
-func loadData() {
-	defer prepareSavedData()
-
-	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		return
-	}
-
-	f, err := os.Open("data")
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	dec := gob.NewDecoder(f)
-	err = dec.Decode(&savedData)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func saveData() {
-	f, err := os.Create("data")
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	enc := gob.NewEncoder(f)
-	enc.Encode(savedData)
-}
-
-func New(conf *config.Config, services *Services) *Server {
+func New(conf *config.Config, services *Services) (*Server, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	man := NewManager(ctx, services)
+
+	// fields := make(map[string]interface{})
+	logger, err := log.New(&conf.Log, nil)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	man := NewManager(ctx, services, logger)
+
 	srv := &Server{
 		ctx:       ctx,
 		ctxCancel: cancel,
@@ -137,24 +115,24 @@ func New(conf *config.Config, services *Services) *Server {
 		manager:   man,
 		conf:      conf,
 		router:    mux.NewRouter(),
+		log:       logger,
 	}
 	srv.routes()
-	return srv
+	return srv, nil
 }
 
 // Start to serve HTTP.
 func (srv *Server) Start() {
-	loadData()
-	defer saveData()
+	defer srv.log.Close()
 
 	if srv.conf.Restic == "" {
-		log.Fatal("no path to restic defined - exiting")
+		srv.log.Fatal("no path to restic defined - exiting")
 	}
 
 	resticExe = restic.New(srv.ctx, srv.conf.Restic)
 	go srv.manager.Start()
 
-	buildSchedules(srv.manager)
+	srv.manager.buildSchedules()
 
 	srv.router.Handle("/", http.FileServer(http.Dir("www")))
 	srv.router.HandleFunc("/ws", srv.ws)
@@ -167,21 +145,23 @@ func (srv *Server) Start() {
 		IdleTimeout:  time.Second * 60,
 	}
 
+	srv.log.Info(fmt.Sprintf("Listening on %s:%d", srv.conf.Listen.IP, srv.conf.Listen.Port))
+
 	go func() {
 		if err := listener.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
+			srv.log.Fatal(err)
 		}
 	}()
 
 	// Setting up signal capturing
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-	log.Println("shutting down")
+	srv.log.Info("shutting down")
 
 	defer srv.ctxCancel()
 	defer stopSchedulers()
 	if err := listener.Shutdown(srv.ctx); err != nil && err != context.DeadlineExceeded {
-		log.Fatal(err)
+		srv.log.Fatal(err)
 	}
 }

@@ -3,12 +3,12 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/robfig/cron/v3"
 	"zerosrealm.xyz/tergum/internal/restic"
 	"zerosrealm.xyz/tergum/internal/types"
 )
@@ -50,6 +50,12 @@ func (srv *Server) createBackup() http.HandlerFunc {
 			return
 		}
 
+		_, err = cron.ParseStandard(req.Schedule)
+		if err != nil {
+			srv.error(w, r, err, http.StatusBadRequest)
+			return
+		}
+
 		backup := &types.Backup{
 			Target:   req.Target,
 			Source:   req.Source,
@@ -63,9 +69,7 @@ func (srv *Server) createBackup() http.HandlerFunc {
 			return
 		}
 
-		// TODO: validate schedule/cron syntax
-		// Better place for this?
-		addSchedule(req.Schedule, srv.manager, backup)
+		srv.manager.addSchedule(req.Schedule, backup)
 
 		r.Header.Add("Location", fmt.Sprintf("/backup/%d", backup.ID))
 		srv.respond(w, r, response{Backup: backup}, http.StatusCreated)
@@ -122,15 +126,20 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 		// 	savedData.Backups = append(savedData.Backups, foundBackup)
 		// }
 
+		_, err = cron.ParseStandard(req.Schedule)
+		if err != nil {
+			srv.error(w, r, err, http.StatusBadRequest)
+			return
+		}
+
 		backup.Target = req.Target
 		backup.Source = req.Source
 		backup.Schedule = req.Schedule
 		backup.Exclude = req.Exclude
 
-		// TODO: validate schedule/cron syntax
 		schedule := getSchedule(backup.ID)
 		if schedule == nil {
-			addSchedule(backup.Schedule, srv.manager, backup)
+			srv.manager.addSchedule(backup.Schedule, backup)
 		} else {
 			schedule.newScheduler(backup.Schedule)
 		}
@@ -763,7 +772,7 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
-		log.Printf("enqueuing job %s for %s\n", jobID, agent.Name)
+		srv.log.Debug("Enqueuing job %s for %s", jobID, agent.Name)
 
 		srv.respond(w, r, response{Job: jobID}, http.StatusOK)
 	}

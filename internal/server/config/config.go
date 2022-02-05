@@ -1,11 +1,12 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 
 	"github.com/jinzhu/configor"
+	"zerosrealm.xyz/tergum/internal/log"
 )
 
 type dbConfig struct {
@@ -16,16 +17,17 @@ type dbConfig struct {
 // Config for storing settings.
 type Config struct {
 	Listen struct {
-		IP   string
-		Port int
+		IP   string `default:"127.0.0.1"`
+		Port int    `default:"8080"`
 	}
 	Restic   string
 	Cache    string
 	Database dbConfig
+	Log      log.Config
 }
 
 // Load config.
-func Load() Config {
+func Load() (*Config, error) {
 	var conf Config
 	if _, err := os.Stat("config.yml"); !os.IsNotExist(err) {
 		configor.Load(&conf, "config.yml")
@@ -41,7 +43,7 @@ func Load() Config {
 	if port != "" {
 		num, err := strconv.Atoi(port)
 		if err != nil {
-			log.Fatal("TERGUM_PORT is not an integer")
+			return nil, fmt.Errorf("TERGUM_PORT is not an integer")
 		}
 		conf.Listen.Port = num
 	}
@@ -49,12 +51,5 @@ func Load() Config {
 		conf.Restic = restic
 	}
 
-	if conf.Listen.IP == "" {
-		conf.Listen.IP = "127.0.0.1"
-	}
-	if conf.Listen.Port == 0 {
-		conf.Listen.Port = 8080
-	}
-
-	return conf
+	return &conf, nil
 }

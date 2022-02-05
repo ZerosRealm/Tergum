@@ -12,7 +12,10 @@ import (
 )
 
 func main() {
-	conf := config.Load()
+	conf, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var repoCache service.RepoCache
 	var repoStorage service.RepoStorage
@@ -73,6 +76,9 @@ func main() {
 	services := server.NewServices(repoSvc, agentSvc, backupSvc)
 
 	log.Println("starting server")
-	server := server.New(&conf, services)
+	server, err := server.New(conf, services)
+	if err != nil {
+		log.Fatal(err)
+	}
 	server.Start()
 }
