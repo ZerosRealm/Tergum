@@ -1,11 +1,12 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 
 	"github.com/jinzhu/configor"
+	"zerosrealm.xyz/tergum/internal/log"
 )
 
 // Config for storing settings.
@@ -17,10 +18,11 @@ type Config struct {
 	PSK    string
 	Restic string
 	Server string
+	Log    log.Config
 }
 
 // Load config.
-func Load() Config {
+func Load() (*Config, error) {
 	var conf Config
 	if _, err := os.Stat("agent.yml"); !os.IsNotExist(err) {
 		configor.Load(&conf, "agent.yml")
@@ -41,7 +43,7 @@ func Load() Config {
 	if port != "" {
 		num, err := strconv.Atoi(port)
 		if err != nil {
-			log.Fatal("TERGUM_PORT is not an integer")
+			return nil, fmt.Errorf("TERGUM_PORT is not an integer")
 		}
 		conf.Listen.Port = num
 	}
@@ -59,5 +61,5 @@ func Load() Config {
 		conf.Listen.Port = 666
 	}
 
-	return conf
+	return &conf, nil
 }

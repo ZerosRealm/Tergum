@@ -2,7 +2,6 @@ package restic
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -108,7 +107,9 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 			if err != nil {
 				break
 			}
-			data = bytes.Replace(data[5:], []byte("\n"), []byte(""), -1)
+			// spew.Dump(string(data))
+			// data = bytes.Replace(data[5:], []byte("\n"), []byte(""), -1)
+			// spew.Dump(string(data))
 
 			update := JobUpdate{
 				ID:  jobID,

@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -19,11 +18,14 @@ func (srv *Server) error(w http.ResponseWriter, r *http.Request, err error, stat
 		Error: err.Error(),
 	}
 
+	srv.log.WithFields("method", r.Method, "path", r.URL.Path, "status", status, "src", r.RemoteAddr).Error(err)
+
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	err = json.NewEncoder(w).Encode(data)
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		srv.log.Error("error: got error encoding response", err)
 	}
 }
 
@@ -41,6 +43,8 @@ func (srv *Server) respond(w http.ResponseWriter, r *http.Request, data interfac
 			return
 		}
 	}
+
+	srv.log.WithFields("method", r.Method, "path", r.URL.Path, "status", status, "src", r.RemoteAddr).Debug()
 }
 
 func (srv *Server) decode(w http.ResponseWriter, r *http.Request, v interface{}) error {

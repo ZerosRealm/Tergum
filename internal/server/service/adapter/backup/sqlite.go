@@ -3,13 +3,15 @@ package backup
 import (
 	"database/sql"
 	"strconv"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
 type sqliteStorage struct {
-	db *sql.DB
+	db       *sql.DB
+	sliceSep string
 }
 
 func NewSQLiteStorage(dataSource string) (*sqliteStorage, error) {
@@ -30,7 +32,10 @@ func NewSQLiteStorage(dataSource string) (*sqliteStorage, error) {
 		return nil, err
 	}
 
-	return &sqliteStorage{db: db}, nil
+	return &sqliteStorage{
+		db:       db,
+		sliceSep: ",",
+	}, nil
 }
 
 func initDB(db *sql.DB) error {
@@ -41,7 +46,7 @@ func initDB(db *sql.DB) error {
 			source TEXT NOT NULL,
 			schedule TEXT NOT NULL,
 			exclude TEXT,
-			last_run TEXT
+			last_run TIMESTAMP
 		);
 	`)
 	if err != nil {
@@ -72,17 +77,20 @@ func (s *sqliteStorage) Get(id []byte) (*types.Backup, error) {
 		return nil, nil
 	}
 
+	var exclude string
 	err = s.db.QueryRow(`SELECT id, target, source, schedule, exclude, last_run FROM backups WHERE id = ?`, intID).Scan(
 		&backup.ID,
 		&backup.Target,
 		&backup.Source,
 		&backup.Schedule,
-		&backup.Exclude,
+		&exclude,
 		&backup.LastRun,
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	backup.Exclude = strings.Split(exclude, s.sliceSep)
 
 	return &backup, nil
 }
@@ -100,17 +108,19 @@ func (s *sqliteStorage) GetAll() ([]*types.Backup, error) {
 	for rows.Next() {
 		var backup types.Backup
 
+		var exclude string
 		err := rows.Scan(
 			&backup.ID,
 			&backup.Target,
 			&backup.Source,
 			&backup.Schedule,
-			&backup.Exclude,
+			&exclude,
 			&backup.LastRun,
 		)
 		if err != nil {
 			return nil, err
 		}
+		backup.Exclude = strings.Split(exclude, s.sliceSep)
 
 		backups = append(backups, &backup)
 	}
@@ -123,7 +133,7 @@ func (s *sqliteStorage) Create(backup *types.Backup) (*types.Backup, error) {
 		backup.Target,
 		backup.Source,
 		backup.Schedule,
-		backup.Exclude,
+		strings.Join(backup.Exclude, s.sliceSep),
 		backup.LastRun,
 	)
 	if err != nil {
@@ -149,7 +159,7 @@ func (s *sqliteStorage) Update(backup *types.Backup) (*types.Backup, error) {
 		backup.Target,
 		backup.Source,
 		backup.Schedule,
-		backup.Exclude,
+		strings.Join(backup.Exclude, s.sliceSep),
 		backup.LastRun,
 		intID,
 	)
