@@ -1,7 +1,6 @@
 <script>
     import { createEventDispatcher} from 'svelte';
     import Modal from '../../common/Modal.svelte';
-    import socket  from '../../common/websocket.js';
     import { callAPI }  from '../../common/API.js';
 
     const dispatch = createEventDispatcher();

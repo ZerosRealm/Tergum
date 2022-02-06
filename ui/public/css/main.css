@@ -16,6 +16,7 @@ body {
     height: 100vh;
     overflow: hidden;
     background-color: #fff;
+    transition: width 0.5s;
 }
 
 label {

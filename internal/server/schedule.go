@@ -32,16 +32,17 @@ func (man *Manager) buildSchedules() {
 	}
 }
 
-func (schedule *schedule) start() {
+func (schedule *schedule) start() ([]string, error) {
 	schedule.manager.log.WithFields("backup", schedule.Backup.ID).Debug("Starting backup")
 
 	// subscribers := schedule.manager.services.backupSvc.
 
 	if len(savedData.BackupSubscribers[schedule.Backup.ID]) == 0 {
 		schedule.manager.log.WithFields("backup", schedule.Backup.ID).Debug("No subscribers, skipping backup")
-		return
+		return nil, nil
 	}
 
+	jobs := []string{}
 	for _, agent := range savedData.BackupSubscribers[schedule.Backup.ID] {
 		target := strconv.Itoa(schedule.Backup.Target)
 		repo, err := schedule.manager.services.repoSvc.Get([]byte(target))
@@ -68,10 +69,13 @@ func (schedule *schedule) start() {
 		id, err := schedule.manager.NewJob(&job, &backupJob)
 		if err != nil {
 			schedule.manager.log.WithFields("backup", schedule.Backup.ID).Error("schedule.Start: job could not be enqueued", err)
-			return
+			return nil, err
 		}
 		schedule.manager.log.WithFields("backup", schedule.Backup.ID).Debug("Enqueuing job", id, "for agent", agent.Name)
+		jobs = append(jobs, id)
 	}
+
+	return jobs, nil
 }
 
 func getSchedule(backupID int) *schedule {

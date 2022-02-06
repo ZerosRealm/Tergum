@@ -137,16 +137,12 @@ func (s *sqliteStorage) Create(agent *types.Agent) (*types.Agent, error) {
 }
 
 func (s *sqliteStorage) Update(agent *types.Agent) (*types.Agent, error) {
-	intID, err := strconv.Atoi(string(agent.ID))
-	if err != nil {
-		return nil, err
-	}
-	_, err = s.db.Exec(`UPDATE agents SET name = ?, ip = ?, port = ?, psk = ? WHERE id = ?`,
+	_, err := s.db.Exec(`UPDATE agents SET name = ?, ip = ?, port = ?, psk = ? WHERE id = ?`,
 		agent.Name,
 		agent.IP,
 		agent.Port,
 		agent.PSK,
-		intID,
+		agent.ID,
 	)
 	if err != nil {
 		return nil, err

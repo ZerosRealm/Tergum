@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	_ "embed"
+	"encoding/gob"
 	"fmt"
 	"net/http"
 	"os"
@@ -97,6 +98,26 @@ func prepareSavedData() {
 	}
 }
 
+func loadData() {
+	defer prepareSavedData()
+
+	if _, err := os.Stat("data"); os.IsNotExist(err) {
+		return
+	}
+
+	f, err := os.Open("data")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	dec := gob.NewDecoder(f)
+	err = dec.Decode(&savedData)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func New(conf *config.Config, services *Services) (*Server, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -123,6 +144,7 @@ func New(conf *config.Config, services *Services) (*Server, error) {
 
 // Start to serve HTTP.
 func (srv *Server) Start() {
+	loadData()
 	defer srv.log.Close()
 
 	if srv.conf.Restic == "" {

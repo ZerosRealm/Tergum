@@ -97,14 +97,6 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 			return
 		}
 
-		// var foundBackup *types.Backup
-		// for _, backup := range savedData.Backups {
-		// 	if backup.ID == id {
-		// 		foundBackup = backup
-		// 		break
-		// 	}
-		// }
-
 		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
 			srv.error(w, r, err, http.StatusInternalServerError)
@@ -136,6 +128,12 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 		backup.Source = req.Source
 		backup.Schedule = req.Schedule
 		backup.Exclude = req.Exclude
+
+		backup, err = srv.services.backupSvc.Update(backup)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		schedule := getSchedule(backup.ID)
 		if schedule == nil {
@@ -278,6 +276,12 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 		repo.Password = req.Password
 		repo.Settings = req.Settings
 
+		repo, err = srv.services.repoSvc.Update(repo)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
 		srv.respond(w, r, response{Repo: repo}, status)
 	}
 }
@@ -410,6 +414,12 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 		agent.PSK = req.PSK
 		agent.IP = req.IP
 		agent.Port = req.Port
+
+		agent, err = srv.services.agentSvc.Update(agent)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		srv.respond(w, r, response{Agent: agent}, status)
 	}
@@ -723,7 +733,7 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 		Exclude string `json:"exclude"`
 	}
 	type response struct {
-		Job string `json:"job"`
+		Job *types.Job `json:"job"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -774,7 +784,52 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 		}
 		srv.log.Debug("Enqueuing job %s for %s", jobID, agent.Name)
 
-		srv.respond(w, r, response{Job: jobID}, http.StatusOK)
+		newJob := srv.manager.getJob(jobID)
+		if newJob == nil {
+			srv.error(w, r, fmt.Errorf("no job found with that ID"), http.StatusNotFound)
+			return
+		}
+
+		srv.respond(w, r, response{Job: newJob}, http.StatusOK)
+	}
+}
+
+func (srv *Server) createJob() http.HandlerFunc {
+	type request struct {
+		Backup int `json:"backup"`
+	}
+	type response struct {
+		Jobs []*types.Job `json:"jobs"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		savedData.Mutex.Lock()
+		defer savedData.Mutex.Unlock()
+
+		var req request
+		err := srv.decode(w, r, &req)
+		if err != nil {
+			srv.error(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		schedule := getSchedule(req.Backup)
+		if schedule == nil {
+			srv.error(w, r, fmt.Errorf("no schedule found with that ID"), http.StatusNotFound)
+			return
+		}
+
+		jobIDs, err := schedule.start()
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		jobs := make([]*types.Job, len(jobIDs))
+		for i, jobID := range jobIDs {
+			jobs[i] = srv.manager.getJob(jobID)
+		}
+
+		srv.respond(w, r, response{Jobs: jobs}, http.StatusOK)
 	}
 }
 
@@ -782,9 +837,6 @@ func (srv *Server) template() http.HandlerFunc {
 	type request struct{}
 	type response struct{}
 	return func(w http.ResponseWriter, r *http.Request) {
-		// savedData.Mutex.Lock()
-		// defer savedData.Mutex.Unlock()
-
 		// vars := mux.Vars(r)
 		// name := vars["project"]
 
