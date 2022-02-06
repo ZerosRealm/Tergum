@@ -5,6 +5,7 @@
 
     import New from './New.svelte'
     import Edit from './Edit.svelte'
+    import Start from './Start.svelte'
     import Delete from './Delete.svelte'
     import Jobs from './jobs/Jobs.svelte'
 
@@ -72,8 +73,9 @@
                         {/if}
                     </td>
                     <td>
-                        <Delete backup={backup} on:refresh={refresh} />
-                        <Edit backup={backup} on:refresh={refresh} />
+                        <Delete bind:backup={backup} on:refresh={refresh} />
+                        <Edit bind:backup={backup} on:refresh={refresh} />
+                        <Start bind:backup={backup} on:refresh={refresh} />
                     </td>
                 </tr>
                 {/each}

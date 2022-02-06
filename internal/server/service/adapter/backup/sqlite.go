@@ -151,17 +151,13 @@ func (s *sqliteStorage) Create(backup *types.Backup) (*types.Backup, error) {
 }
 
 func (s *sqliteStorage) Update(backup *types.Backup) (*types.Backup, error) {
-	intID, err := strconv.Atoi(string(backup.ID))
-	if err != nil {
-		return nil, err
-	}
-	_, err = s.db.Exec(`UPDATE backups SET target = ?, source = ?, schedule = ?, exclude = ?, last_run = ? WHERE id = ?`,
+	_, err := s.db.Exec(`UPDATE backups SET target = ?, source = ?, schedule = ?, exclude = ?, last_run = ? WHERE id = ?`,
 		backup.Target,
 		backup.Source,
 		backup.Schedule,
 		strings.Join(backup.Exclude, s.sliceSep),
 		backup.LastRun,
-		intID,
+		backup.ID,
 	)
 	if err != nil {
 		return nil, err

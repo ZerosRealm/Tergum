@@ -147,16 +147,12 @@ func (s *sqliteStorage) Create(repo *types.Repo) (*types.Repo, error) {
 }
 
 func (s *sqliteStorage) Update(repo *types.Repo) (*types.Repo, error) {
-	intID, err := strconv.Atoi(string(repo.ID))
-	if err != nil {
-		return nil, err
-	}
-	_, err = s.db.Exec(`UPDATE repos SET name = ?, repo = ?, password = ?, settings = ? WHERE id = ?`,
+	_, err := s.db.Exec(`UPDATE repos SET name = ?, repo = ?, password = ?, settings = ? WHERE id = ?`,
 		repo.Name,
 		repo.Repo,
 		repo.Password,
 		strings.Join(repo.Settings, s.settingsSplitChar),
-		intID,
+		repo.ID,
 	)
 	if err != nil {
 		return nil, err

@@ -98,6 +98,7 @@ func (srv *Server) routes() {
 	api.Handle("/repo/{id}/snapshot/{snapshot}/restore", srv.restoreSnapshot()).Methods("POST")
 
 	api.Handle("/job", srv.getJobs()).Methods("GET")
+	api.Handle("/job", srv.createJob()).Methods("POST")
 	// api.Handle("/job/{id}", srv.getJob()).Methods("GET")
 	api.Handle("/job/{id}", srv.stopJob()).Methods("DELETE")
 	api.Handle("/job/{id}/progress", srv.jobProgress()).Methods("POST")

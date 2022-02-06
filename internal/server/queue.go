@@ -33,13 +33,13 @@ func (man *Manager) queueHandler() {
 
 			agentAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", job.Agent.IP, job.Agent.Port))
 			if err != nil {
-				man.log.WithFields("job", job.ID).Error("queuehandler:", err)
+				man.log.WithFields("job", job.ID).Error("queueHandler:", err)
 				continue
 			}
 
 			conn, err := net.DialTCP("tcp4", nil, agentAddr)
 			if err != nil {
-				man.log.WithFields("job", job.ID).Error("queuehandler:", err)
+				man.log.WithFields("job", job.ID).Error("queueHandler:", err)
 				continue
 			}
 			defer conn.Close()
@@ -47,7 +47,7 @@ func (man *Manager) queueHandler() {
 			enc := gob.NewEncoder(conn)
 			err = enc.Encode(job)
 			if err != nil {
-				man.log.WithFields("job", job.ID).Error("queuehandler:", err)
+				man.log.WithFields("job", job.ID).Error("queueHandler:", err)
 			}
 
 			man.log.WithFields("job", job.ID).Debug("successfully sent to", job.Agent.Name)
