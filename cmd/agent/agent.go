@@ -22,24 +22,34 @@ import (
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
-var conf config.Config
+var conf *config.Config
 var resticExe *restic.Restic
 
 var jobs = make(map[string]*restic.Job)
 var logger *log.Logger
 
+type jobError struct {
+	JobID string `json:"job"`
+	Error error  `json:"error"`
+	Msg   []byte `json:"msg"`
+}
+
+var jobErrors = make(chan jobError, 100)
+
 func updateHandler(ctx context.Context) {
-	type jobProgress struct {
-		Msg json.RawMessage `json:"msg"`
-	}
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case update := <-resticExe.Updates:
+			type jobProgress struct {
+				Msg json.RawMessage `json:"msg"`
+			}
 			msg, err := json.Marshal(jobProgress{Msg: update.Msg})
 			if err != nil {
-				logger.WithFields("function", "updateHandler").Trace("update dump:", spew.Sdump(msg))
+				logger.WithFields("function", "updateHandler").Trace("update dump:", spew.Sdump(update))
 				logger.WithFields("function", "updateHandler").Error("marshalling update error:", err)
-				panic(err)
+				continue
 			}
 
 			req, err := http.NewRequest("POST", conf.Server+"/api/job/"+update.ID+"/progress", bytes.NewReader(msg))
@@ -70,6 +80,43 @@ func updateHandler(ctx context.Context) {
 				return
 			}
 			jobs[job.ID] = job
+		case jobErr := <-jobErrors:
+			type jobUpdate struct {
+				Msg   string `json:"msg"`
+				Error string `json:"error"`
+			}
+			logger.WithFields("function", "updateHandler", "job", jobErr.JobID).Error("job error:", jobErr.Error)
+
+			msg, err := json.Marshal(jobUpdate{Msg: string(jobErr.Msg), Error: jobErr.Error.Error()})
+			if err != nil {
+				logger.WithFields("function", "updateHandler").Trace("jobError dump:", spew.Sdump(jobErr))
+				logger.WithFields("function", "updateHandler").Error("marshalling jobError error:", err)
+				continue
+			}
+
+			req, err := http.NewRequest("POST", conf.Server+"/api/job/"+jobErr.JobID+"/error", bytes.NewReader(msg))
+			if err != nil {
+				logger.WithFields("function", "updateHandler").Error("error:", err)
+				continue
+			}
+
+			req.Header.Add("authorization", fmt.Sprintf("PSK %s", conf.PSK))
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				logger.WithFields("function", "updateHandler").Error("marshalling update error:", err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != 200 {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					logger.WithFields("function", "updateHandler").Error("non-200 status:", resp.Status, "body read error:", err)
+					continue
+				}
+				logger.WithFields("function", "updateHandler").Error("non-200 status:", resp.Status, "body:", string(body))
+			}
 		default:
 			select {
 			case <-ctx.Done():
@@ -99,7 +146,8 @@ func handleConnection(c net.Conn) {
 	}
 
 	if packet.Agent.PSK != conf.PSK {
-		logger.WithFields("function", "handleConnection", "job", packet.ID).Warn("job PSK does not match")
+		logger.WithFields("function", "handleConnection", "job", packet.ID, "source", c.RemoteAddr().String()).Trace("job PSK:", packet.Agent.PSK)
+		logger.WithFields("function", "handleConnection", "job", packet.ID, "source", c.RemoteAddr().String()).Warn("PSK mismatch")
 		return
 	}
 
@@ -108,9 +156,9 @@ func handleConnection(c net.Conn) {
 		var job types.BackupJob
 		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
 		err := dec.Decode(&job)
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
 
 		if err != nil {
-			logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet.Data))
 			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("decoding job error:", err)
 			return
 		}
@@ -118,7 +166,8 @@ func handleConnection(c net.Conn) {
 		logger.WithFields("function", "handleConnection", "job", packet.ID).Info("Starting job")
 		out, err := resticExe.Backup(packet.Repo.Repo, job.Backup.Source, packet.Repo.Password, job.Backup.Exclude, packet.ID, packet.Repo.Settings...)
 		if err != nil {
-			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("restic backup error:", err, "output:", string(out))
+			jobErrors <- jobError{JobID: packet.ID, Error: err, Msg: out}
+			logger.WithFields("function", "handleConnection", "job", packet.ID, "output", string(out)).Error("restic backup error:", err)
 			return
 		}
 
@@ -127,9 +176,9 @@ func handleConnection(c net.Conn) {
 		var job types.RestoreJob
 		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
 		err := dec.Decode(&job)
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
 
 		if err != nil {
-			logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet.Data))
 			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("decoding job error:", err)
 			return
 		}
@@ -138,7 +187,8 @@ func handleConnection(c net.Conn) {
 		out, err := resticExe.Restore(packet.Repo.Repo, packet.Repo.Password, job.Snapshot,
 			job.Target, job.Include, job.Exclude, packet.Repo.Settings...)
 		if err != nil {
-			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("restic backup error:", err, "output:", string(out))
+			jobErrors <- jobError{JobID: packet.ID, Error: err, Msg: out}
+			logger.WithFields("function", "handleConnection", "job", packet.ID, "output", string(out)).Error("restic backup error:", err)
 			return
 		}
 
@@ -148,9 +198,9 @@ func handleConnection(c net.Conn) {
 		var job types.StopJob
 		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
 		err := dec.Decode(&job)
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
 
 		if err != nil {
-			logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet.Data))
 			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("decoding job error:", err)
 			return
 		}
@@ -170,10 +220,11 @@ func handleConnection(c net.Conn) {
 }
 
 func main() {
-	conf, err := config.Load()
+	config, err := config.Load()
 	if err != nil {
 		panic(err)
 	}
+	conf = config
 
 	log, err := log.New(&conf.Log, nil)
 	if err != nil {

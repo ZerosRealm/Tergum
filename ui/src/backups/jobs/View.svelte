@@ -26,7 +26,7 @@
 			Job information
 		</h2>
 
-        {#each Object.entries(job) as [key, val]}
+        {#each Object.entries(job.progress) as [key, val]}
             {#if key != "message_type"}
                 {#if key == "percent_done"}
                     <label for="{key}" class="form-label mt-3">{capitalize(key).replaceAll("_", " ")}</label>

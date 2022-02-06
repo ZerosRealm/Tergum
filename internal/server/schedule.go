@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/robfig/cron/v3"
 	"zerosrealm.xyz/tergum/internal/types"
 )
 
 type schedule struct {
-	Backup    *types.Backup
+	BackupID  int
 	Schedule  string
 	Scheduler *cron.Cron
 
@@ -28,32 +29,39 @@ func (man *Manager) buildSchedules() {
 
 	for _, backup := range backups {
 		man.log.Debug("Adding schedule for backup", fmt.Sprintf("#%d", backup.ID))
-		man.addSchedule(backup.Schedule, backup)
+		man.addSchedule(backup.Schedule, backup.ID)
 	}
 }
 
 func (schedule *schedule) start() ([]string, error) {
-	schedule.manager.log.WithFields("backup", schedule.Backup.ID).Debug("Starting backup")
+	backup, err := schedule.manager.services.backupSvc.Get([]byte(strconv.Itoa(schedule.BackupID)))
+	if err != nil {
+		return nil, err
+	}
+
+	schedule.manager.log.WithFields("backup", backup.ID).Debug("Starting backup")
 
 	// subscribers := schedule.manager.services.backupSvc.
 
-	if len(savedData.BackupSubscribers[schedule.Backup.ID]) == 0 {
-		schedule.manager.log.WithFields("backup", schedule.Backup.ID).Debug("No subscribers, skipping backup")
+	spew.Dump(backup)
+
+	if len(savedData.BackupSubscribers[backup.ID]) == 0 {
+		schedule.manager.log.WithFields("backup", backup.ID).Debug("No subscribers, skipping backup")
 		return nil, nil
 	}
 
 	jobs := []string{}
-	for _, agent := range savedData.BackupSubscribers[schedule.Backup.ID] {
-		target := strconv.Itoa(schedule.Backup.Target)
+	for _, agent := range savedData.BackupSubscribers[backup.ID] {
+		target := strconv.Itoa(backup.Target)
 		repo, err := schedule.manager.services.repoSvc.Get([]byte(target))
 		if err != nil {
-			schedule.manager.log.WithFields("backup", schedule.Backup.ID).Error("schedule.Start: could not get repos", err)
+			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: could not get repos", err)
 			continue
 		}
 
 		if repo == nil {
 			// log.Println("No repo found with ID defined in backup target")
-			schedule.manager.log.WithFields("backup", schedule.Backup.ID).Error("schedule.Start: no repo found with ID defined in backup target")
+			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: no repo found with ID defined in backup target")
 			break
 		}
 		job := types.JobPacket{
@@ -63,15 +71,15 @@ func (schedule *schedule) start() ([]string, error) {
 		}
 
 		backupJob := types.BackupJob{
-			Backup: schedule.Backup,
+			Backup: backup,
 		}
 
 		id, err := schedule.manager.NewJob(&job, &backupJob)
 		if err != nil {
-			schedule.manager.log.WithFields("backup", schedule.Backup.ID).Error("schedule.Start: job could not be enqueued", err)
+			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: job could not be enqueued", err)
 			return nil, err
 		}
-		schedule.manager.log.WithFields("backup", schedule.Backup.ID).Debug("Enqueuing job", id, "for agent", agent.Name)
+		schedule.manager.log.WithFields("backup", backup.ID).Debug("Enqueuing job", id, "for agent", agent.Name)
 		jobs = append(jobs, id)
 	}
 
@@ -80,7 +88,7 @@ func (schedule *schedule) start() ([]string, error) {
 
 func getSchedule(backupID int) *schedule {
 	for _, sch := range schedules {
-		if sch.Backup.ID == backupID {
+		if sch.BackupID == backupID {
 			return sch
 		}
 	}
@@ -97,10 +105,10 @@ func getSchedules(cronSchedule string) []*schedule {
 	return matches
 }
 
-func (man *Manager) addSchedule(cronSchedule string, backup *types.Backup) *schedule {
+func (man *Manager) addSchedule(cronSchedule string, backupID int) *schedule {
 	schedule := schedule{
-		Backup:  backup,
-		manager: man,
+		BackupID: backupID,
+		manager:  man,
 	}
 
 	schedule.newScheduler(cronSchedule)
@@ -133,7 +141,7 @@ func stopSchedulers() {
 
 func removeSchedule(backupID int) {
 	for i, schedule := range schedules {
-		if schedule.Backup.ID == backupID {
+		if schedule.BackupID == backupID {
 			schedule.Scheduler.Stop()
 			schedules = append(schedules[:i], schedules[i+1:]...)
 		}

@@ -3,6 +3,7 @@
     import { format  as dateFormat } from 'fecha';
     import socket  from '../../common/websocket.js';
     import { callAPI }  from '../../common/API.js';
+    import { addToast }  from '../../common/toasts.js';
 
     import View from './View.svelte'
     import Stop from './Stop.svelte'
@@ -49,27 +50,44 @@
         if (!(job.id in jobs)) {
             jobs[job.id] = job;
         }
-        
-        msg = job.progress
-        if (msg == null) {
+
+        if (job.progress == null) {
+            jobs[job.id] = job
             return;
         }
 
         let percent = 0
         let snapshot = ""
-        if (msg.message_type == "status") {
-            percent = Math.floor(msg.percent_done * 100)
+        if (job.progress.message_type == "status") {
+            percent = Math.floor(job.progress.percent_done * 100)
         }
-        if (msg.message_type == "summary") {
+        if (job.progress.message_type == "summary") {
             percent = 100
-            snapshot = msg.snapshot_id
         }
 
-        msg.percent = percent
-        msg.snapshot = snapshot
-        delete job.progress
-        jobs[job.id] = Object.assign(job, msg)
+        job.progress.percent = percent
+
+        // delete job.progress
+        jobs[job.id] = job
     }
+
+    socket.subscribe(event => {
+        if (event.data == "") {
+            return
+        }
+
+        let data = JSON.parse(event.data);
+        if (data.type.toLowerCase() != "job_error") {
+            return;
+        }
+        msg = data.msg
+
+        addToast({
+            type: "error",
+            title: "Error!",
+            message: msg,
+        })
+    });
 
     function refresh(e) {
         loading = true;
@@ -80,6 +98,10 @@
  .job-done {
      background-color: #004F39;
  }
+
+.job-error {
+    background-color: #8B0000;
+}
 </style>
 <h2>Jobs</h2>
 <table class="table">
@@ -87,6 +109,7 @@
         <tr>
             <th scope="col">#</th>
             <th scope="col">Start</th>
+            <th scope="col">End</th>
             <th scope="col">Progress</th>
             <th scope="col">Snapshot</th>
             <th scope="col" style='text-align:right;'>Actions</th>
@@ -110,9 +133,28 @@
                         {/if}
                     </td>
                     <td>
-                        <div class="progress progress-bar" class:job-done={job.percent==100} role="progressbar" style="width: {job.percent}%;" aria-valuenow="{job.percent}" aria-valuemin="0" aria-valuemax="100">{job.percent}%</div>
+                        {#if job.end_time == nullDate || job.end_time == undefined}
+                            Never
+                        {:else}
+                            {dateFormat((new Date(job.end_time)), "YYYY-MM-DD HH:mm:ss")}
+                        {/if}
                     </td>
-                    <td>{job.snapshot}</td>
+                    <td>
+                        {#if job.progress != null}
+                            <div class="progress progress-bar" class:job-done={job.progress.percent==100} role="progressbar" style="width: {job.progress.percent}%;" aria-valuenow="{job.progress.percent}" aria-valuemin="0" aria-valuemax="100">{job.progress.percent}%</div>
+                        {:else}
+                            {#if !job.aborted}
+                                <div class="progress progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            {:else}
+                                <div class="progress progress-bar job-error" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">ABORTED</div>
+                            {/if}
+                        {/if}
+                    </td>
+                    <td>
+                        {#if job.progress != null && job.progress.snapshot_id != null}
+                            {job.progress.snapshot_id}
+                        {/if}
+                    </td>
                     <td>
                         <View job={job} on:refresh={refresh} />
                         <Stop job={job} on:refresh={refresh} />

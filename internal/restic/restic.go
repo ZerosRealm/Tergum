@@ -2,9 +2,12 @@ package restic
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -42,7 +45,6 @@ func New(ctx context.Context, exePath string) *Restic {
 // Restic JSON struct
 // https://github.com/restic/restic/blob/master/internal/ui/backup/json.go#L198
 
-// TODO: Add cancelation?
 // Backup source to target repo.
 func (r *Restic) Backup(repo, source, password string, exclude []string, jobID string, env ...string) ([]byte, error) {
 	args := []string{
@@ -75,6 +77,9 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 
 	reader := bufio.NewReader(cmdReader)
 
+	errReader := new(bytes.Buffer)
+	cmd.Stderr = errReader
+
 	// Create a job.
 	job := &Job{
 		ID: jobID,
@@ -96,7 +101,10 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 			case <-job.ctx.Done():
 				err := cmd.Process.Signal(os.Interrupt)
 				if err != nil {
-					cmd.Process.Signal(os.Kill)
+					err = cmd.Process.Signal(os.Kill)
+					if err != nil {
+						panic(fmt.Errorf("restic.Backup: failed to kill process: %w", err))
+					}
 				}
 
 				return
@@ -105,11 +113,11 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 
 			data, err := reader.ReadBytes('\n')
 			if err != nil {
+				if err != io.EOF {
+					log.Println("restic.Backup: failed to read update from reader:", err)
+				}
 				break
 			}
-			// spew.Dump(string(data))
-			// data = bytes.Replace(data[5:], []byte("\n"), []byte(""), -1)
-			// spew.Dump(string(data))
 
 			update := JobUpdate{
 				ID:  jobID,
@@ -123,10 +131,18 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 		}
 	}()
 	if err := cmd.Start(); err != nil {
-		return nil, err
+		out, readErr := io.ReadAll(errReader)
+		if readErr != nil {
+			return nil, fmt.Errorf("restic.Backup cmd.Start(): could not read stderr: %w", readErr)
+		}
+		return out, err
 	}
 	if err := cmd.Wait(); err != nil {
-		return nil, err
+		out, readErr := io.ReadAll(errReader)
+		if readErr != nil {
+			return nil, fmt.Errorf("restic.Backup cmd.Wait(): could not read stderr: %w", readErr)
+		}
+		return out, err
 	}
 
 	return []byte("Done"), nil

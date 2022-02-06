@@ -69,7 +69,7 @@ func (srv *Server) createBackup() http.HandlerFunc {
 			return
 		}
 
-		srv.manager.addSchedule(req.Schedule, backup)
+		srv.manager.addSchedule(req.Schedule, backup.ID)
 
 		r.Header.Add("Location", fmt.Sprintf("/backup/%d", backup.ID))
 		srv.respond(w, r, response{Backup: backup}, http.StatusCreated)
@@ -137,7 +137,7 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 
 		schedule := getSchedule(backup.ID)
 		if schedule == nil {
-			srv.manager.addSchedule(backup.Schedule, backup)
+			srv.manager.addSchedule(backup.Schedule, backup.ID)
 		} else {
 			schedule.newScheduler(backup.Schedule)
 		}
@@ -630,10 +630,8 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 		psk := auth[1]
 		access := false
 
-		// TODO: Cache agent PSKs?
 		agents, err := srv.services.agentSvc.GetAll()
 		if err != nil {
-			// TODO: Log error
 			srv.error(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -830,6 +828,89 @@ func (srv *Server) createJob() http.HandlerFunc {
 		}
 
 		srv.respond(w, r, response{Jobs: jobs}, http.StatusOK)
+	}
+}
+
+func (srv *Server) jobError() http.HandlerFunc {
+	type wsResponse struct {
+		Type  string `json:"type"`
+		Error string `json:"error"`
+		Msg   string `json:"msg"`
+	}
+
+	type request struct {
+		Msg   string `json:"msg"`
+		Error string `json:"error"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("authorization")
+		auth := strings.SplitN(authHeader, " ", 2)
+		if len(auth) != 2 || strings.ToLower(auth[0]) != "psk" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		psk := auth[1]
+		access := false
+
+		agents, err := srv.services.agentSvc.GetAll()
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		if agents == nil {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		for _, agent := range agents {
+			if agent.PSK == psk {
+				access = true
+				break
+			}
+		}
+
+		if !access {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		vars := mux.Vars(r)
+		jobID := vars["id"]
+
+		job := srv.manager.getJob(jobID)
+
+		if job == nil {
+			srv.error(w, r, fmt.Errorf("no job found with that ID"), http.StatusNotFound)
+			return
+		}
+
+		job.Aborted = true
+
+		var req request
+		err = srv.decode(w, r, &req)
+		if err != nil {
+			srv.error(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		wsResponse := wsResponse{
+			Type:  "job_error",
+			Error: req.Error,
+			Msg:   req.Msg,
+		}
+
+		jobJSON, err := json.Marshal(wsResponse)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		srv.manager.WriteWS([]byte(jobJSON))
+
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
