@@ -13,6 +13,8 @@ import (
 	"zerosrealm.xyz/tergum/internal/restic"
 )
 
+const msgDecodeError = "Could not decode request."
+
 func (srv *Server) getBackups() http.HandlerFunc {
 	type response struct {
 		Backups []*entities.Backup `json:"backups"`
@@ -21,7 +23,7 @@ func (srv *Server) getBackups() http.HandlerFunc {
 
 		backups, err := srv.services.backupSvc.GetAll()
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get backups.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -46,13 +48,13 @@ func (srv *Server) createBackup() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		_, err = cron.ParseStandard(req.Schedule)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, "Invalid cron schedule.", err, http.StatusBadRequest)
 			return
 		}
 
@@ -65,7 +67,7 @@ func (srv *Server) createBackup() http.HandlerFunc {
 
 		backup, err = srv.services.backupSvc.Create(backup)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not create backup.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -93,18 +95,18 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get backup.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if backup == nil {
-			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No backup with that ID.", fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -120,7 +122,7 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 
 		_, err = cron.ParseStandard(req.Schedule)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, "Invalid cron schedule.", err, http.StatusBadRequest)
 			return
 		}
 
@@ -131,7 +133,7 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 
 		backup, err = srv.services.backupSvc.Update(backup)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not update backup.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -153,18 +155,18 @@ func (srv *Server) deleteBackup() http.HandlerFunc {
 
 		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get backup.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if backup == nil {
-			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No backup with that ID.", fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
 
 		err = srv.services.backupSvc.Delete([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not delete backup.", err, http.StatusInternalServerError)
 			return
 		}
 		removeSchedule(backup.ID)
@@ -180,7 +182,7 @@ func (srv *Server) getRepos() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		repos, err := srv.services.repoSvc.GetAll()
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get repositories.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -206,7 +208,7 @@ func (srv *Server) createRepo() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
@@ -219,7 +221,7 @@ func (srv *Server) createRepo() http.HandlerFunc {
 
 		repo, err = srv.services.repoSvc.Create(repo)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not create repository.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -245,18 +247,18 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get repository.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if repo == nil {
-			srv.error(w, r, fmt.Errorf("no repo with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No repository with that ID.", fmt.Errorf("no repo with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -278,7 +280,7 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 
 		repo, err = srv.services.repoSvc.Update(repo)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not update repository.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -293,18 +295,18 @@ func (srv *Server) deleteRepo() http.HandlerFunc {
 
 		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get repository.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if repo == nil {
-			srv.error(w, r, fmt.Errorf("no repo with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No repository found with that ID.", fmt.Errorf("no repo with that ID"), http.StatusNotFound)
 			return
 		}
 
 		err = srv.services.repoSvc.Delete([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not delete repository.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -319,7 +321,7 @@ func (srv *Server) getAgents() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		agents, err := srv.services.agentSvc.GetAll()
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get agents.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -345,7 +347,7 @@ func (srv *Server) createAgent() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
@@ -358,7 +360,7 @@ func (srv *Server) createAgent() http.HandlerFunc {
 
 		agent, err = srv.services.agentSvc.Create(agent)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not create agent.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -384,18 +386,18 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		agent, err := srv.services.agentSvc.Get([]byte(agentID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get agent.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if agent == nil {
-			srv.error(w, r, fmt.Errorf("no agent with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No agent found with that ID.", fmt.Errorf("no agent with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -417,7 +419,7 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 
 		agent, err = srv.services.agentSvc.Update(agent)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not update agent.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -432,18 +434,18 @@ func (srv *Server) deleteAgent() http.HandlerFunc {
 
 		agent, err := srv.services.agentSvc.Get([]byte(agentID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get agent.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if agent == nil {
-			srv.error(w, r, fmt.Errorf("no agent with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No agent found with that ID.", fmt.Errorf("no agent with that ID"), http.StatusNotFound)
 			return
 		}
 
 		err = srv.services.agentSvc.Delete([]byte(agentID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not delete agent.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -459,18 +461,18 @@ func (srv *Server) deleteSnapshot() http.HandlerFunc {
 
 		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get repository.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if repo == nil {
-			srv.error(w, r, fmt.Errorf("no repo with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No repository with that ID.", fmt.Errorf("no repo with that ID"), http.StatusNotFound)
 			return
 		}
 
 		out, err := resticExe.Forget(repo.Repo, repo.Password, snapshot, nil, repo.Settings...)
 		if err != nil {
-			srv.error(w, r, fmt.Errorf(string(out)), http.StatusInternalServerError)
+			srv.error(w, r, "Running forget policy returned errors.", fmt.Errorf("%s: %s", string(out), err), http.StatusInternalServerError)
 			return
 		}
 
@@ -491,12 +493,12 @@ func (srv *Server) getBackupAgents() http.HandlerFunc {
 
 		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get backup.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if backup == nil {
-			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No backup found with that ID.", fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -528,18 +530,18 @@ func (srv *Server) updateBackupAgents() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		backup, err := srv.services.backupSvc.Get([]byte(backupID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get backup.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if backup == nil {
-			srv.error(w, r, fmt.Errorf("no backup with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No backup found with that ID.", fmt.Errorf("no backup with that ID"), http.StatusNotFound)
 			return
 		}
 		subscribedAgents, ok := savedData.BackupSubscribers[backup.ID]
@@ -550,12 +552,12 @@ func (srv *Server) updateBackupAgents() http.HandlerFunc {
 		for _, agentID := range req.Agents {
 			agent, err := srv.services.agentSvc.Get([]byte(strconv.Itoa(agentID)))
 			if err != nil {
-				srv.error(w, r, err, http.StatusInternalServerError)
+				srv.error(w, r, "Could not get agent.", err, http.StatusInternalServerError)
 				return
 			}
 
 			if agent == nil {
-				srv.error(w, r, fmt.Errorf("no agent with the ID %d", agent.ID), http.StatusNotFound)
+				srv.error(w, r, "No agent found with that ID.", fmt.Errorf("no agent with the ID %d", agent.ID), http.StatusNotFound)
 				return
 			}
 
@@ -596,13 +598,13 @@ func (srv *Server) stopJob() http.HandlerFunc {
 		job := srv.manager.getJob(jobID)
 
 		if job == nil {
-			srv.error(w, r, fmt.Errorf("no job found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No job found with that ID.", fmt.Errorf("no job found with that ID"), http.StatusNotFound)
 			return
 		}
 
 		err := srv.manager.stopJob(job)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not stop job.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -632,7 +634,7 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 
 		agents, err := srv.services.agentSvc.GetAll()
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get agents.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -659,14 +661,14 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 		job := srv.manager.getJob(jobID)
 
 		if job == nil {
-			srv.error(w, r, fmt.Errorf("no job found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No job found with that ID.", fmt.Errorf("no job found with that ID"), http.StatusNotFound)
 			return
 		}
 
 		var req request
 		err = srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
@@ -679,7 +681,7 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 
 		jobJSON, err := json.Marshal(wsResponse)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not encode websocket message.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -688,7 +690,7 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 		if job.Done {
 			forgetPolicy, err := srv.services.forgetSvc.Get([]byte("0"))
 			if err != nil {
-				srv.error(w, r, err, http.StatusInternalServerError)
+				srv.error(w, r, "Could not get forget policy.", err, http.StatusInternalServerError)
 				return
 			}
 
@@ -706,9 +708,9 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 				Yearly:  forgetPolicy.Yearly,
 			}
 
-			_, err = resticExe.Forget(job.Packet.Repo.Repo, job.Packet.Repo.Password, "", options)
+			out, err := resticExe.Forget(job.Packet.Repo.Repo, job.Packet.Repo.Password, "", options)
 			if err != nil {
-				srv.error(w, r, err, http.StatusInternalServerError)
+				srv.error(w, r, "Running forget policy returned errors.", fmt.Errorf("%s: %s", string(out), err), http.StatusInternalServerError)
 				return
 			}
 		}
@@ -727,18 +729,18 @@ func (srv *Server) getSnapshots() http.HandlerFunc {
 
 		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get repository.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if repo == nil {
-			srv.error(w, r, fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No repository found with that ID.", fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
 			return
 		}
 
 		snapshots, err := resticExe.Snapshots(repo.Repo, repo.Password, repo.Settings...)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get snapshots.", err, http.StatusInternalServerError)
 			return
 		}
 		for i, snapshot := range snapshots {
@@ -769,24 +771,24 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		repo, err := srv.services.repoSvc.Get([]byte(repoID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get repository.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if repo == nil {
-			srv.error(w, r, fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No repository found with that ID.", fmt.Errorf("no repo found with that ID"), http.StatusNotFound)
 			return
 		}
 
 		agent, err := srv.services.agentSvc.Get([]byte(strconv.Itoa(req.Agent)))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get agent.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -805,14 +807,14 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 
 		jobID, err := srv.manager.NewJob(&job, &restoreJob)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not create job.", err, http.StatusInternalServerError)
 			return
 		}
 		srv.log.Debug("Enqueuing job %s for %s", jobID, agent.Name)
 
 		newJob := srv.manager.getJob(jobID)
 		if newJob == nil {
-			srv.error(w, r, fmt.Errorf("no job found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No job found with that ID.", fmt.Errorf("no job found with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -834,19 +836,21 @@ func (srv *Server) createJob() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
+		// TODO: Does this mean it can only find the schedule of the first backup?
+		// So a backup can only have one schedule?
 		schedule := getSchedule(req.Backup)
 		if schedule == nil {
-			srv.error(w, r, fmt.Errorf("no schedule found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "Could not get schedule for backup.", fmt.Errorf("no schedule found for that backup"), http.StatusNotFound)
 			return
 		}
 
 		jobIDs, err := schedule.start()
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not start backup.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -884,7 +888,7 @@ func (srv *Server) jobError() http.HandlerFunc {
 
 		agents, err := srv.services.agentSvc.GetAll()
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get agents.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -911,7 +915,7 @@ func (srv *Server) jobError() http.HandlerFunc {
 		job := srv.manager.getJob(jobID)
 
 		if job == nil {
-			srv.error(w, r, fmt.Errorf("no job found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No job found with that ID.", fmt.Errorf("no job found with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -920,7 +924,7 @@ func (srv *Server) jobError() http.HandlerFunc {
 		var req request
 		err = srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
@@ -932,7 +936,7 @@ func (srv *Server) jobError() http.HandlerFunc {
 
 		jobJSON, err := json.Marshal(wsResponse)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not encode websocket message.", err, http.StatusInternalServerError)
 			return
 		}
 
@@ -953,12 +957,12 @@ func (srv *Server) getForget() http.HandlerFunc {
 
 		forget, err := srv.services.forgetSvc.Get([]byte(forgetID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get forget policy.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if forget == nil {
-			srv.error(w, r, fmt.Errorf("no forget found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No forget policy found with that ID.", fmt.Errorf("no forget found with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -980,18 +984,18 @@ func (srv *Server) updateForget() http.HandlerFunc {
 		var req request
 		err := srv.decode(w, r, &req)
 		if err != nil {
-			srv.error(w, r, err, http.StatusBadRequest)
+			srv.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 			return
 		}
 
 		forget, err := srv.services.forgetSvc.Get([]byte(forgetID))
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not get forget policy.", err, http.StatusInternalServerError)
 			return
 		}
 
 		if forget == nil {
-			srv.error(w, r, fmt.Errorf("no forget found with that ID"), http.StatusNotFound)
+			srv.error(w, r, "No forget policy with that ID.", fmt.Errorf("no forget found with that ID"), http.StatusNotFound)
 			return
 		}
 
@@ -1005,7 +1009,7 @@ func (srv *Server) updateForget() http.HandlerFunc {
 
 		forget, err = srv.services.forgetSvc.Update(forget)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not update forget policy.", err, http.StatusInternalServerError)
 			return
 		}
 

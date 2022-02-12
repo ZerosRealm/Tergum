@@ -10,18 +10,22 @@ export async function callAPI(endpoint, parameters) {
             return response.json()
         })
         .then(data => {
-            if (data.error) {
+            let errorMsg = data.error;
+            if (data.message != undefined && data.message != "") {
+                errorMsg = data.message;
+            }
+
+            if (errorMsg != undefined) {
                 addToast({
                     type: "error",
                     title: "Error!",
-                    message: data.error,
+                    message: errorMsg,
                 })
                 return;
             }
             resolve(data);
         })
         .catch((error) => {
-            console.error(error);
             addToast({
                 type: "error",
                 title: "Error!",

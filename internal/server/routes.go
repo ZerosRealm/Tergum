@@ -8,14 +8,16 @@ import (
 )
 
 type errorResponse struct {
-	Code  int    `json:"code"`
-	Error string `json:"error"`
+	Code    int    `json:"code"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
 }
 
-func (srv *Server) error(w http.ResponseWriter, r *http.Request, err error, status int) {
+func (srv *Server) error(w http.ResponseWriter, r *http.Request, msg string, err error, status int) {
 	data := errorResponse{
-		Code:  status,
-		Error: err.Error(),
+		Code:    status,
+		Error:   err.Error(),
+		Message: msg,
 	}
 
 	srv.log.WithFields("method", r.Method, "path", r.URL.Path, "status", status, "src", r.RemoteAddr).Error(err)
@@ -39,7 +41,7 @@ func (srv *Server) respond(w http.ResponseWriter, r *http.Request, data interfac
 	if data != nil {
 		err := json.NewEncoder(w).Encode(data)
 		if err != nil {
-			srv.error(w, r, err, http.StatusInternalServerError)
+			srv.error(w, r, "Could not retrieve response!", err, http.StatusInternalServerError)
 			return
 		}
 	}
