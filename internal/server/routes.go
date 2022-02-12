@@ -104,6 +104,11 @@ func (srv *Server) routes() {
 	api.Handle("/job/{id}/progress", srv.jobProgress()).Methods("POST")
 	api.Handle("/job/{id}/error", srv.jobError()).Methods("POST")
 
+	// api.Handle("/forget", srv.getJobs()).Methods("GET")
+	// api.Handle("/forget", srv.createForget()).Methods("POST")
+	api.Handle("/forget/{id}", srv.getForget()).Methods("GET")
+	api.Handle("/forget/{id}", srv.updateForget()).Methods("PUT")
+
 	srv.router.Use(mux.CORSMethodMiddleware(srv.router))
 	srv.router.Use(cors)
 }

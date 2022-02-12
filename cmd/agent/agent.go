@@ -17,9 +17,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"zerosrealm.xyz/tergum/internal/agent/config"
+	"zerosrealm.xyz/tergum/internal/entities"
 	"zerosrealm.xyz/tergum/internal/log"
 	"zerosrealm.xyz/tergum/internal/restic"
-	"zerosrealm.xyz/tergum/internal/types"
 )
 
 var conf *config.Config
@@ -131,7 +131,7 @@ func handleConnection(c net.Conn) {
 	logger.WithFields("function", "handleConnection").Debug("Serving", c.RemoteAddr().String())
 	defer c.Close()
 
-	var packet types.JobPacket
+	var packet entities.JobPacket
 	dec := gob.NewDecoder(c)
 	err := dec.Decode(&packet)
 
@@ -153,8 +153,8 @@ func handleConnection(c net.Conn) {
 
 	switch packet.Type {
 	case "backup":
-		var job types.BackupJob
-		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
+		var job entities.BackupJob
+		dec := gob.NewDecoder(bytes.NewReader(packet.Data))
 		err := dec.Decode(&job)
 		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
 
@@ -173,8 +173,8 @@ func handleConnection(c net.Conn) {
 
 		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("output:", string(out))
 	case "restore":
-		var job types.RestoreJob
-		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
+		var job entities.RestoreJob
+		dec := gob.NewDecoder(bytes.NewReader(packet.Data))
 		err := dec.Decode(&job)
 		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
 
@@ -195,8 +195,8 @@ func handleConnection(c net.Conn) {
 		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("output:", string(out))
 		delete(jobs, packet.ID)
 	case "stop":
-		var job types.StopJob
-		dec := gob.NewDecoder(bytes.NewReader(packet.Data.([]byte)))
+		var job entities.StopJob
+		dec := gob.NewDecoder(bytes.NewReader(packet.Data))
 		err := dec.Decode(&job)
 		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
 

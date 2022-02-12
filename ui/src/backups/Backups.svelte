@@ -7,7 +7,10 @@
     import Edit from './Edit.svelte'
     import Start from './Start.svelte'
     import Delete from './Delete.svelte'
+    
     import Jobs from './jobs/Jobs.svelte'
+    import Forget from './Forget.svelte'
+    
 
     let loading = true;
     const nullDate = "0001-01-01T00:00:00Z"
@@ -43,6 +46,7 @@
 </style>
 <div>
     <New on:refresh={refresh} on:add={add} />
+    <Forget />
     <table class="table">
         <thead>
             <tr>

@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"strconv"
 
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 type RepoCache interface {
-	Get(id []byte) (*types.Repo, error)
-	GetAll() ([]*types.Repo, error)
+	Get(id []byte) (*entities.Repo, error)
+	GetAll() ([]*entities.Repo, error)
 
-	Add(repo *types.Repo) error
+	Add(repo *entities.Repo) error
 	Invalidate(id []byte) error
 }
 
 type RepoStorage interface {
-	Get(id []byte) (*types.Repo, error)
-	GetAll() ([]*types.Repo, error)
-	Create(repo *types.Repo) (*types.Repo, error)
-	Update(repo *types.Repo) (*types.Repo, error)
+	Get(id []byte) (*entities.Repo, error)
+	GetAll() ([]*entities.Repo, error)
+	Create(repo *entities.Repo) (*entities.Repo, error)
+	Update(repo *entities.Repo) (*entities.Repo, error)
 	Delete(id []byte) error
 }
 
@@ -35,7 +35,7 @@ func NewRepoService(cache *RepoCache, storage *RepoStorage) *RepoService {
 	}
 }
 
-func (svc *RepoService) Get(id []byte) (*types.Repo, error) {
+func (svc *RepoService) Get(id []byte) (*entities.Repo, error) {
 	if svc.cache != nil {
 		repo, err := svc.cache.Get(id)
 		if err != nil {
@@ -54,7 +54,7 @@ func (svc *RepoService) Get(id []byte) (*types.Repo, error) {
 	return repo, nil
 }
 
-func (svc *RepoService) GetAll() ([]*types.Repo, error) {
+func (svc *RepoService) GetAll() ([]*entities.Repo, error) {
 	if svc.cache != nil {
 		repos, err := svc.cache.GetAll()
 		if err != nil {
@@ -73,7 +73,7 @@ func (svc *RepoService) GetAll() ([]*types.Repo, error) {
 	return repos, nil
 }
 
-func (svc *RepoService) Create(repo *types.Repo) (*types.Repo, error) {
+func (svc *RepoService) Create(repo *entities.Repo) (*entities.Repo, error) {
 	repo, err := svc.storage.Create(repo)
 	if err != nil {
 		return nil, fmt.Errorf("repoSvc.Create: could not create repo: %w", err)
@@ -89,7 +89,7 @@ func (svc *RepoService) Create(repo *types.Repo) (*types.Repo, error) {
 	return repo, nil
 }
 
-func (svc *RepoService) Update(repo *types.Repo) (*types.Repo, error) {
+func (svc *RepoService) Update(repo *entities.Repo) (*entities.Repo, error) {
 	repo, err := svc.storage.Update(repo)
 	if err != nil {
 		return nil, fmt.Errorf("repoSvc.Update: could not update repo: %w", err)

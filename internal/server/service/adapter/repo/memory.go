@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 /*
@@ -13,17 +13,17 @@ import (
 
 type MemoryCache struct {
 	mutex sync.RWMutex
-	repos map[string]*types.Repo
+	repos map[string]*entities.Repo
 }
 
 func NewMemoryCache() *MemoryCache {
 	return &MemoryCache{
 		mutex: sync.RWMutex{},
-		repos: make(map[string]*types.Repo),
+		repos: make(map[string]*entities.Repo),
 	}
 }
 
-func (s *MemoryCache) Get(id []byte) (*types.Repo, error) {
+func (s *MemoryCache) Get(id []byte) (*entities.Repo, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -36,11 +36,11 @@ func (s *MemoryCache) Get(id []byte) (*types.Repo, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryCache) GetAll() ([]*types.Repo, error) {
+func (s *MemoryCache) GetAll() ([]*entities.Repo, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	repos := make([]*types.Repo, 0, len(s.repos))
+	repos := make([]*entities.Repo, 0, len(s.repos))
 	for _, repo := range s.repos {
 		repos = append(repos, repo)
 	}
@@ -48,7 +48,7 @@ func (s *MemoryCache) GetAll() ([]*types.Repo, error) {
 	return repos, nil
 }
 
-func (s *MemoryCache) Add(repo *types.Repo) error {
+func (s *MemoryCache) Add(repo *entities.Repo) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -70,17 +70,17 @@ func (s *MemoryCache) Invalidate(id []byte) error {
 
 type MemoryStorage struct {
 	mutex sync.RWMutex
-	repos map[string]*types.Repo
+	repos map[string]*entities.Repo
 }
 
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
 		mutex: sync.RWMutex{},
-		repos: make(map[string]*types.Repo),
+		repos: make(map[string]*entities.Repo),
 	}
 }
 
-func (s *MemoryStorage) Get(id []byte) (*types.Repo, error) {
+func (s *MemoryStorage) Get(id []byte) (*entities.Repo, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -93,11 +93,11 @@ func (s *MemoryStorage) Get(id []byte) (*types.Repo, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryStorage) GetAll() ([]*types.Repo, error) {
+func (s *MemoryStorage) GetAll() ([]*entities.Repo, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	repos := make([]*types.Repo, 0, len(s.repos))
+	repos := make([]*entities.Repo, 0, len(s.repos))
 	for _, repo := range s.repos {
 		repos = append(repos, repo)
 	}
@@ -105,7 +105,7 @@ func (s *MemoryStorage) GetAll() ([]*types.Repo, error) {
 	return repos, nil
 }
 
-func (s *MemoryStorage) Create(repo *types.Repo) (*types.Repo, error) {
+func (s *MemoryStorage) Create(repo *entities.Repo) (*entities.Repo, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -117,7 +117,7 @@ func (s *MemoryStorage) Create(repo *types.Repo) (*types.Repo, error) {
 	return repo, nil
 }
 
-func (s *MemoryStorage) Update(repo *types.Repo) (*types.Repo, error) {
+func (s *MemoryStorage) Update(repo *entities.Repo) (*entities.Repo, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

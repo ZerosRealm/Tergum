@@ -8,6 +8,7 @@ import (
 	"zerosrealm.xyz/tergum/internal/server/service"
 	"zerosrealm.xyz/tergum/internal/server/service/adapter/agent"
 	"zerosrealm.xyz/tergum/internal/server/service/adapter/backup"
+	"zerosrealm.xyz/tergum/internal/server/service/adapter/forget"
 	"zerosrealm.xyz/tergum/internal/server/service/adapter/repo"
 )
 
@@ -23,6 +24,8 @@ func main() {
 	var agentStorage service.AgentStorage
 	var backupCache service.BackupCache
 	var backupStorage service.BackupStorage
+	var forgetCache service.ForgetCache
+	var forgetStorage service.ForgetStorage
 
 	switch conf.Database.Driver {
 	case "memory":
@@ -50,9 +53,16 @@ func main() {
 		}
 		defer backupSQL.Close()
 
+		forgetSQL, err := forget.NewSQLiteStorage(conf.Database.DataSourceName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer forgetSQL.Close()
+
 		repoStorage = repoSQL
 		agentStorage = agentSQL
 		backupStorage = backupSQL
+		forgetStorage = forgetSQL
 	default:
 		log.Fatal("unsupported database driver")
 	}
@@ -65,6 +75,7 @@ func main() {
 		repoCache = repo.NewMemoryCache()
 		agentCache = agent.NewMemoryCache()
 		backupCache = backup.NewMemoryCache()
+		forgetCache = forget.NewMemoryCache()
 	default:
 		log.Println("continuing without cache")
 	}
@@ -72,8 +83,9 @@ func main() {
 	repoSvc := service.NewRepoService(&repoCache, &repoStorage)
 	agentSvc := service.NewAgentService(&agentCache, &agentStorage)
 	backupSvc := service.NewBackupService(&backupCache, &backupStorage)
+	forgetSvc := service.NewForgetService(&forgetCache, &forgetStorage)
 
-	services := server.NewServices(repoSvc, agentSvc, backupSvc)
+	services := server.NewServices(repoSvc, agentSvc, backupSvc, forgetSvc)
 
 	log.Println("starting server")
 	server, err := server.New(conf, services)

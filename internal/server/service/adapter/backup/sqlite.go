@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 type sqliteStorage struct {
@@ -60,8 +60,8 @@ func (s *sqliteStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *sqliteStorage) Get(id []byte) (*types.Backup, error) {
-	var backup types.Backup
+func (s *sqliteStorage) Get(id []byte) (*entities.Backup, error) {
+	var backup entities.Backup
 
 	var exists bool
 	intID, err := strconv.Atoi(string(id))
@@ -96,8 +96,8 @@ func (s *sqliteStorage) Get(id []byte) (*types.Backup, error) {
 }
 
 // TODO: Implement pagination.
-func (s *sqliteStorage) GetAll() ([]*types.Backup, error) {
-	var backups []*types.Backup
+func (s *sqliteStorage) GetAll() ([]*entities.Backup, error) {
+	var backups []*entities.Backup
 
 	rows, err := s.db.Query(`SELECT id, target, source, schedule, exclude, last_run FROM backups`)
 	if err != nil {
@@ -106,7 +106,7 @@ func (s *sqliteStorage) GetAll() ([]*types.Backup, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var backup types.Backup
+		var backup entities.Backup
 
 		var exclude string
 		err := rows.Scan(
@@ -128,7 +128,7 @@ func (s *sqliteStorage) GetAll() ([]*types.Backup, error) {
 	return backups, nil
 }
 
-func (s *sqliteStorage) Create(backup *types.Backup) (*types.Backup, error) {
+func (s *sqliteStorage) Create(backup *entities.Backup) (*entities.Backup, error) {
 	result, err := s.db.Exec(`INSERT INTO backups (target, source, schedule, exclude, last_run) VALUES (?, ?, ?, ?, ?)`,
 		backup.Target,
 		backup.Source,
@@ -150,7 +150,7 @@ func (s *sqliteStorage) Create(backup *types.Backup) (*types.Backup, error) {
 	return backup, nil
 }
 
-func (s *sqliteStorage) Update(backup *types.Backup) (*types.Backup, error) {
+func (s *sqliteStorage) Update(backup *entities.Backup) (*entities.Backup, error) {
 	_, err := s.db.Exec(`UPDATE backups SET target = ?, source = ?, schedule = ?, exclude = ?, last_run = ? WHERE id = ?`,
 		backup.Target,
 		backup.Source,

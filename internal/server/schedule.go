@@ -6,7 +6,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/robfig/cron/v3"
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 type schedule struct {
@@ -64,13 +64,13 @@ func (schedule *schedule) start() ([]string, error) {
 			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: no repo found with ID defined in backup target")
 			break
 		}
-		job := types.JobPacket{
+		job := entities.JobPacket{
 			Type:  "backup",
 			Agent: agent,
 			Repo:  repo,
 		}
 
-		backupJob := types.BackupJob{
+		backupJob := entities.BackupJob{
 			Backup: backup,
 		}
 

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net"
 
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
-func (man *Manager) enqueue(job types.JobPacket) bool {
+func (man *Manager) enqueue(job entities.JobPacket) bool {
 	select {
 	case man.jobQueue <- job:
 		return true

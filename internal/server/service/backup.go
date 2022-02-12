@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"strconv"
 
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 type BackupCache interface {
-	Get(id []byte) (*types.Backup, error)
-	GetAll() ([]*types.Backup, error)
+	Get(id []byte) (*entities.Backup, error)
+	GetAll() ([]*entities.Backup, error)
 
-	Add(backup *types.Backup) error
+	Add(backup *entities.Backup) error
 	Invalidate(id []byte) error
 }
 
 type BackupStorage interface {
-	Get(id []byte) (*types.Backup, error)
-	GetAll() ([]*types.Backup, error)
-	Create(backup *types.Backup) (*types.Backup, error)
-	Update(backup *types.Backup) (*types.Backup, error)
+	Get(id []byte) (*entities.Backup, error)
+	GetAll() ([]*entities.Backup, error)
+	Create(backup *entities.Backup) (*entities.Backup, error)
+	Update(backup *entities.Backup) (*entities.Backup, error)
 	Delete(id []byte) error
 }
 
@@ -35,7 +35,7 @@ func NewBackupService(cache *BackupCache, storage *BackupStorage) *BackupService
 	}
 }
 
-func (svc *BackupService) Get(id []byte) (*types.Backup, error) {
+func (svc *BackupService) Get(id []byte) (*entities.Backup, error) {
 	if svc.cache != nil {
 		backup, err := svc.cache.Get(id)
 		if err != nil {
@@ -54,7 +54,7 @@ func (svc *BackupService) Get(id []byte) (*types.Backup, error) {
 	return backup, nil
 }
 
-func (svc *BackupService) GetAll() ([]*types.Backup, error) {
+func (svc *BackupService) GetAll() ([]*entities.Backup, error) {
 	if svc.cache != nil {
 		backups, err := svc.cache.GetAll()
 		if err != nil {
@@ -73,7 +73,7 @@ func (svc *BackupService) GetAll() ([]*types.Backup, error) {
 	return backups, nil
 }
 
-func (svc *BackupService) Create(backup *types.Backup) (*types.Backup, error) {
+func (svc *BackupService) Create(backup *entities.Backup) (*entities.Backup, error) {
 	backup, err := svc.storage.Create(backup)
 	if err != nil {
 		return nil, fmt.Errorf("backupSvc.Create: could not create backup: %w", err)
@@ -89,7 +89,7 @@ func (svc *BackupService) Create(backup *types.Backup) (*types.Backup, error) {
 	return backup, nil
 }
 
-func (svc *BackupService) Update(backup *types.Backup) (*types.Backup, error) {
+func (svc *BackupService) Update(backup *entities.Backup) (*entities.Backup, error) {
 	backup, err := svc.storage.Update(backup)
 	if err != nil {
 		return nil, fmt.Errorf("backupSvc.Update: could not update backup: %w", err)

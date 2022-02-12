@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 /*
@@ -12,18 +12,18 @@ import (
 */
 
 type MemoryCache struct {
-	mutex sync.RWMutex
-	agents map[string]*types.Agent
+	mutex  sync.RWMutex
+	agents map[string]*entities.Agent
 }
 
 func NewMemoryCache() *MemoryCache {
 	return &MemoryCache{
-		mutex: sync.RWMutex{},
-		agents: make(map[string]*types.Agent),
+		mutex:  sync.RWMutex{},
+		agents: make(map[string]*entities.Agent),
 	}
 }
 
-func (s *MemoryCache) Get(id []byte) (*types.Agent, error) {
+func (s *MemoryCache) Get(id []byte) (*entities.Agent, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -36,11 +36,11 @@ func (s *MemoryCache) Get(id []byte) (*types.Agent, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryCache) GetAll() ([]*types.Agent, error) {
+func (s *MemoryCache) GetAll() ([]*entities.Agent, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	agents := make([]*types.Agent, 0, len(s.agents))
+	agents := make([]*entities.Agent, 0, len(s.agents))
 	for _, agent := range s.agents {
 		agents = append(agents, agent)
 	}
@@ -48,7 +48,7 @@ func (s *MemoryCache) GetAll() ([]*types.Agent, error) {
 	return agents, nil
 }
 
-func (s *MemoryCache) Add(agent *types.Agent) error {
+func (s *MemoryCache) Add(agent *entities.Agent) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -69,18 +69,18 @@ func (s *MemoryCache) Invalidate(id []byte) error {
 */
 
 type MemoryStorage struct {
-	mutex sync.RWMutex
-	agents map[string]*types.Agent
+	mutex  sync.RWMutex
+	agents map[string]*entities.Agent
 }
 
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		mutex: sync.RWMutex{},
-		agents: make(map[string]*types.Agent),
+		mutex:  sync.RWMutex{},
+		agents: make(map[string]*entities.Agent),
 	}
 }
 
-func (s *MemoryStorage) Get(id []byte) (*types.Agent, error) {
+func (s *MemoryStorage) Get(id []byte) (*entities.Agent, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -93,11 +93,11 @@ func (s *MemoryStorage) Get(id []byte) (*types.Agent, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryStorage) GetAll() ([]*types.Agent, error) {
+func (s *MemoryStorage) GetAll() ([]*entities.Agent, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	agents := make([]*types.Agent, 0, len(s.agents))
+	agents := make([]*entities.Agent, 0, len(s.agents))
 	for _, agent := range s.agents {
 		agents = append(agents, agent)
 	}
@@ -105,7 +105,7 @@ func (s *MemoryStorage) GetAll() ([]*types.Agent, error) {
 	return agents, nil
 }
 
-func (s *MemoryStorage) Create(agent *types.Agent) (*types.Agent, error) {
+func (s *MemoryStorage) Create(agent *entities.Agent) (*entities.Agent, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -117,7 +117,7 @@ func (s *MemoryStorage) Create(agent *types.Agent) (*types.Agent, error) {
 	return agent, nil
 }
 
-func (s *MemoryStorage) Update(agent *types.Agent) (*types.Agent, error) {
+func (s *MemoryStorage) Update(agent *entities.Agent) (*entities.Agent, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

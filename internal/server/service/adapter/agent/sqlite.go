@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
-	"zerosrealm.xyz/tergum/internal/types"
+	"zerosrealm.xyz/tergum/internal/entities"
 )
 
 type sqliteStorage struct {
@@ -54,8 +54,8 @@ func (s *sqliteStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *sqliteStorage) Get(id []byte) (*types.Agent, error) {
-	var agent types.Agent
+func (s *sqliteStorage) Get(id []byte) (*entities.Agent, error) {
+	var agent entities.Agent
 
 	var exists bool
 	intID, err := strconv.Atoi(string(id))
@@ -86,8 +86,8 @@ func (s *sqliteStorage) Get(id []byte) (*types.Agent, error) {
 }
 
 // TODO: Implement pagination.
-func (s *sqliteStorage) GetAll() ([]*types.Agent, error) {
-	var agents []*types.Agent
+func (s *sqliteStorage) GetAll() ([]*entities.Agent, error) {
+	var agents []*entities.Agent
 
 	rows, err := s.db.Query(`SELECT id, name, ip, port, psk FROM agents`)
 	if err != nil {
@@ -96,7 +96,7 @@ func (s *sqliteStorage) GetAll() ([]*types.Agent, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var agent types.Agent
+		var agent entities.Agent
 
 		err := rows.Scan(
 			&agent.ID,
@@ -115,7 +115,7 @@ func (s *sqliteStorage) GetAll() ([]*types.Agent, error) {
 	return agents, nil
 }
 
-func (s *sqliteStorage) Create(agent *types.Agent) (*types.Agent, error) {
+func (s *sqliteStorage) Create(agent *entities.Agent) (*entities.Agent, error) {
 	result, err := s.db.Exec(`INSERT INTO agents (name, ip, port, psk) VALUES (?, ?, ?, ?)`,
 		agent.Name,
 		agent.IP,
@@ -136,7 +136,7 @@ func (s *sqliteStorage) Create(agent *types.Agent) (*types.Agent, error) {
 	return agent, nil
 }
 
-func (s *sqliteStorage) Update(agent *types.Agent) (*types.Agent, error) {
+func (s *sqliteStorage) Update(agent *entities.Agent) (*entities.Agent, error) {
 	_, err := s.db.Exec(`UPDATE agents SET name = ?, ip = ?, port = ?, psk = ? WHERE id = ?`,
 		agent.Name,
 		agent.IP,

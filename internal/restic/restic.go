@@ -10,7 +10,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
+	"strconv"
 )
 
 // Restic executable.
@@ -222,8 +222,17 @@ func (r *Restic) Snapshots(repo, password string, env ...string) ([]Snapshot, er
 	return snapshots, err
 }
 
+type ForgetOptions struct {
+	LastX   int
+	Hourly  int
+	Daily   int
+	Weekly  int
+	Monthly int
+	Yearly  int
+}
+
 // Forget a snapshot.
-func (r *Restic) Forget(repo, password, snapshot string, policies []string, env ...string) ([]byte, error) {
+func (r *Restic) Forget(repo, password, snapshot string, options *ForgetOptions, env ...string) ([]byte, error) {
 	args := []string{
 		"forget",
 	}
@@ -235,11 +244,34 @@ func (r *Restic) Forget(repo, password, snapshot string, policies []string, env 
 	args = append(args, "--repo")
 	args = append(args, repo)
 
-	if len(policies) > 0 {
-		for _, policy := range policies {
-			split := strings.SplitN(policy, " ", 2)
-			args = append(args, split...)
-		}
+	if options.LastX > 0 {
+		args = append(args, "--keep-last")
+		args = append(args, strconv.Itoa(options.LastX))
+	}
+
+	if options.Hourly > 0 {
+		args = append(args, "--keep-hourly")
+		args = append(args, strconv.Itoa(options.Hourly))
+	}
+
+	if options.Daily > 0 {
+		args = append(args, "--keep-daily")
+		args = append(args, strconv.Itoa(options.Daily))
+	}
+
+	if options.Weekly > 0 {
+		args = append(args, "--keep-weekly")
+		args = append(args, strconv.Itoa(options.Weekly))
+	}
+
+	if options.Monthly > 0 {
+		args = append(args, "--keep-monthly")
+		args = append(args, strconv.Itoa(options.Monthly))
+	}
+
+	if options.Yearly > 0 {
+		args = append(args, "--keep-yearly")
+		args = append(args, strconv.Itoa(options.Yearly))
 	}
 
 	cmd := exec.Command(r.exe, args...)

@@ -9,13 +9,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/robfig/cron/v3"
+	"zerosrealm.xyz/tergum/internal/entities"
 	"zerosrealm.xyz/tergum/internal/restic"
-	"zerosrealm.xyz/tergum/internal/types"
 )
 
 func (srv *Server) getBackups() http.HandlerFunc {
 	type response struct {
-		Backups []*types.Backup `json:"backups"`
+		Backups []*entities.Backup `json:"backups"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -26,7 +26,7 @@ func (srv *Server) getBackups() http.HandlerFunc {
 		}
 
 		if backups == nil {
-			backups = make([]*types.Backup, 0)
+			backups = make([]*entities.Backup, 0)
 		}
 
 		srv.respond(w, r, &response{Backups: backups}, 200)
@@ -40,7 +40,7 @@ func (srv *Server) createBackup() http.HandlerFunc {
 		Schedule string `json:"schedule"`
 	}
 	type response struct {
-		Backup *types.Backup `json:"backup"`
+		Backup *entities.Backup `json:"backup"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -56,7 +56,7 @@ func (srv *Server) createBackup() http.HandlerFunc {
 			return
 		}
 
-		backup := &types.Backup{
+		backup := &entities.Backup{
 			Target:   req.Target,
 			Source:   req.Source,
 			Schedule: req.Schedule,
@@ -84,7 +84,7 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 		Exclude  []string `json:"exclude"`
 	}
 	type response struct {
-		Backup *types.Backup `json:"backup"`
+		Backup *entities.Backup `json:"backup"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -111,7 +111,7 @@ func (srv *Server) updateBackup() http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create a backup with the given ID if it does not exist
 		// if backup == nil {
-		// 	backup = &types.Backup{
+		// 	backup = &entities.Backup{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated
@@ -175,7 +175,7 @@ func (srv *Server) deleteBackup() http.HandlerFunc {
 
 func (srv *Server) getRepos() http.HandlerFunc {
 	type response struct {
-		Repos []*types.Repo `json:"repos"`
+		Repos []*entities.Repo `json:"repos"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		repos, err := srv.services.repoSvc.GetAll()
@@ -185,7 +185,7 @@ func (srv *Server) getRepos() http.HandlerFunc {
 		}
 
 		if repos == nil {
-			repos = make([]*types.Repo, 0)
+			repos = make([]*entities.Repo, 0)
 		}
 
 		srv.respond(w, r, &response{Repos: repos}, http.StatusOK)
@@ -200,7 +200,7 @@ func (srv *Server) createRepo() http.HandlerFunc {
 		Settings []string `json:"settings"`
 	}
 	type response struct {
-		Repo *types.Repo `json:"repo"`
+		Repo *entities.Repo `json:"repo"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -210,7 +210,7 @@ func (srv *Server) createRepo() http.HandlerFunc {
 			return
 		}
 
-		repo := &types.Repo{
+		repo := &entities.Repo{
 			Name:     req.Name,
 			Repo:     req.Repo,
 			Password: req.Password,
@@ -236,7 +236,7 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 		Settings []string `json:"settings"`
 	}
 	type response struct {
-		Repo *types.Repo `json:"repo"`
+		Repo *entities.Repo `json:"repo"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -263,7 +263,7 @@ func (srv *Server) updateRepo() http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create a repo with the given ID if it does not exist
 		// if foundRepo == nil {
-		// 	foundRepo = &types.Repo{
+		// 	foundRepo = &entities.Repo{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated
@@ -314,7 +314,7 @@ func (srv *Server) deleteRepo() http.HandlerFunc {
 
 func (srv *Server) getAgents() http.HandlerFunc {
 	type response struct {
-		Agents []*types.Agent `json:"agents"`
+		Agents []*entities.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		agents, err := srv.services.agentSvc.GetAll()
@@ -324,7 +324,7 @@ func (srv *Server) getAgents() http.HandlerFunc {
 		}
 
 		if agents == nil {
-			agents = make([]*types.Agent, 0)
+			agents = make([]*entities.Agent, 0)
 		}
 
 		srv.respond(w, r, &response{Agents: agents}, http.StatusOK)
@@ -339,7 +339,7 @@ func (srv *Server) createAgent() http.HandlerFunc {
 		Port int    `json:"port"`
 	}
 	type response struct {
-		Agent *types.Agent `json:"agent"`
+		Agent *entities.Agent `json:"agent"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -349,7 +349,7 @@ func (srv *Server) createAgent() http.HandlerFunc {
 			return
 		}
 
-		agent := &types.Agent{
+		agent := &entities.Agent{
 			Name: req.Name,
 			PSK:  req.PSK,
 			IP:   req.IP,
@@ -375,7 +375,7 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 		Port int    `json:"port"`
 	}
 	type response struct {
-		Agent *types.Agent `json:"agent"`
+		Agent *entities.Agent `json:"agent"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -402,7 +402,7 @@ func (srv *Server) updateAgent() http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create an agent with the given ID if it does not exist
 		// if foundAgent == nil {
-		// 	foundAgent = &types.Agent{
+		// 	foundAgent = &entities.Agent{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated
@@ -480,7 +480,7 @@ func (srv *Server) deleteSnapshot() http.HandlerFunc {
 
 func (srv *Server) getBackupAgents() http.HandlerFunc {
 	type response struct {
-		Agents []*types.Agent `json:"agents"`
+		Agents []*entities.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		savedData.Mutex.Lock()
@@ -503,7 +503,7 @@ func (srv *Server) getBackupAgents() http.HandlerFunc {
 		// TODO: Use a different service for this.
 		agents, ok := savedData.BackupSubscribers[backup.ID]
 		if !ok || agents == nil {
-			srv.respond(w, r, response{Agents: make([]*types.Agent, 0)}, http.StatusOK)
+			srv.respond(w, r, response{Agents: make([]*entities.Agent, 0)}, http.StatusOK)
 			return
 		}
 
@@ -516,7 +516,7 @@ func (srv *Server) updateBackupAgents() http.HandlerFunc {
 		Agents []int `json:"agents"`
 	}
 	type response struct {
-		Agents []*types.Agent `json:"agents"`
+		Agents []*entities.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		savedData.Mutex.Lock()
@@ -544,7 +544,7 @@ func (srv *Server) updateBackupAgents() http.HandlerFunc {
 		}
 		subscribedAgents, ok := savedData.BackupSubscribers[backup.ID]
 		if !ok || len(req.Agents) == 0 {
-			subscribedAgents = make([]*types.Agent, 0)
+			subscribedAgents = make([]*entities.Agent, 0)
 		}
 
 		for _, agentID := range req.Agents {
@@ -570,14 +570,14 @@ func (srv *Server) updateBackupAgents() http.HandlerFunc {
 
 func (srv *Server) getJobs() http.HandlerFunc {
 	type response struct {
-		Jobs map[string]*types.Job `json:"jobs"`
+		Jobs map[string]*entities.Job `json:"jobs"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		savedData.Mutex.Lock()
 		defer savedData.Mutex.Unlock()
 
-		resp := response{Jobs: make(map[string]*types.Job)}
-		for _, job := range srv.manager.Jobs {
+		resp := response{Jobs: make(map[string]*entities.Job)}
+		for _, job := range srv.manager.jobs {
 			resp.Jobs[job.ID] = job
 		}
 
@@ -616,8 +616,8 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 	}
 
 	type wsResponse struct {
-		Type string     `json:"type"`
-		Job  *types.Job `json:"job"`
+		Type string        `json:"type"`
+		Job  *entities.Job `json:"job"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("authorization")
@@ -685,7 +685,35 @@ func (srv *Server) jobProgress() http.HandlerFunc {
 
 		srv.manager.WriteWS([]byte(jobJSON))
 
-		w.WriteHeader(http.StatusOK)
+		if job.Done {
+			forgetPolicy, err := srv.services.forgetSvc.Get([]byte("0"))
+			if err != nil {
+				srv.error(w, r, err, http.StatusInternalServerError)
+				return
+			}
+
+			if !forgetPolicy.Enabled {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			options := &restic.ForgetOptions{
+				LastX:   forgetPolicy.LastX,
+				Hourly:  forgetPolicy.Hourly,
+				Daily:   forgetPolicy.Daily,
+				Weekly:  forgetPolicy.Weekly,
+				Monthly: forgetPolicy.Monthly,
+				Yearly:  forgetPolicy.Yearly,
+			}
+
+			_, err = resticExe.Forget(job.Packet.Repo.Repo, job.Packet.Repo.Password, "", options)
+			if err != nil {
+				srv.error(w, r, err, http.StatusInternalServerError)
+				return
+			}
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -731,7 +759,7 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 		Exclude string `json:"exclude"`
 	}
 	type response struct {
-		Job *types.Job `json:"job"`
+		Job *entities.Job `json:"job"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -762,13 +790,13 @@ func (srv *Server) restoreSnapshot() http.HandlerFunc {
 			return
 		}
 
-		job := types.JobPacket{
+		job := entities.JobPacket{
 			Type:  "restore",
 			Repo:  repo,
 			Agent: agent,
 		}
 
-		restoreJob := types.RestoreJob{
+		restoreJob := entities.RestoreJob{
 			Snapshot: snapshot,
 			Target:   req.Dest,
 			Include:  req.Include,
@@ -797,7 +825,7 @@ func (srv *Server) createJob() http.HandlerFunc {
 		Backup int `json:"backup"`
 	}
 	type response struct {
-		Jobs []*types.Job `json:"jobs"`
+		Jobs []*entities.Job `json:"jobs"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		savedData.Mutex.Lock()
@@ -822,7 +850,7 @@ func (srv *Server) createJob() http.HandlerFunc {
 			return
 		}
 
-		jobs := make([]*types.Job, len(jobIDs))
+		jobs := make([]*entities.Job, len(jobIDs))
 		for i, jobID := range jobIDs {
 			jobs[i] = srv.manager.getJob(jobID)
 		}
@@ -911,6 +939,77 @@ func (srv *Server) jobError() http.HandlerFunc {
 		srv.manager.WriteWS([]byte(jobJSON))
 
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (srv *Server) getForget() http.HandlerFunc {
+	type request struct{}
+	type response struct {
+		Forget *entities.Forget `json:"forget"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		forgetID := vars["id"]
+
+		forget, err := srv.services.forgetSvc.Get([]byte(forgetID))
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		if forget == nil {
+			srv.error(w, r, fmt.Errorf("no forget found with that ID"), http.StatusNotFound)
+			return
+		}
+
+		srv.respond(w, r, response{Forget: forget}, http.StatusOK)
+	}
+}
+
+func (srv *Server) updateForget() http.HandlerFunc {
+	type request struct {
+		entities.Forget
+	}
+	type response struct {
+		Forget *entities.Forget `json:"forget"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		forgetID := vars["id"]
+
+		var req request
+		err := srv.decode(w, r, &req)
+		if err != nil {
+			srv.error(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		forget, err := srv.services.forgetSvc.Get([]byte(forgetID))
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		if forget == nil {
+			srv.error(w, r, fmt.Errorf("no forget found with that ID"), http.StatusNotFound)
+			return
+		}
+
+		forget.Enabled = req.Enabled
+		forget.LastX = req.LastX
+		forget.Hourly = req.Hourly
+		forget.Daily = req.Daily
+		forget.Weekly = req.Weekly
+		forget.Monthly = req.Monthly
+		forget.Yearly = req.Yearly
+
+		forget, err = srv.services.forgetSvc.Update(forget)
+		if err != nil {
+			srv.error(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		srv.respond(w, r, response{Forget: forget}, http.StatusOK)
 	}
 }
 

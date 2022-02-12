@@ -15,33 +15,33 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rs/xid"
 
+	"zerosrealm.xyz/tergum/internal/entities"
 	"zerosrealm.xyz/tergum/internal/log"
-	"zerosrealm.xyz/tergum/internal/types"
 )
 
 type Manager struct {
 	ctx       context.Context
-	Jobs      []*types.Job
+	jobs      []*entities.Job
 	jobsMutex *sync.Mutex
 	services  *Services
 
 	log *log.Logger
 
 	wsWrite  chan []byte
-	jobQueue chan types.JobPacket
+	jobQueue chan entities.JobPacket
 }
 
 func NewManager(ctx context.Context, services *Services, logger *log.Logger) *Manager {
 	return &Manager{
 		ctx:       ctx,
-		Jobs:      make([]*types.Job, 0),
+		jobs:      make([]*entities.Job, 0),
 		jobsMutex: &sync.Mutex{},
 		services:  services,
 
 		log: logger.WithFields("component", "manager"),
 
 		wsWrite:  make(chan []byte, 100),
-		jobQueue: make(chan types.JobPacket, 100),
+		jobQueue: make(chan entities.JobPacket, 100),
 	}
 }
 
@@ -50,7 +50,7 @@ func (man *Manager) Start() {
 	go man.queueHandler()
 }
 
-func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (string, error) {
+func (man *Manager) NewJob(packet *entities.JobPacket, typePacket interface{}) (string, error) {
 	man.jobsMutex.Lock()
 	defer man.jobsMutex.Unlock()
 
@@ -69,7 +69,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 	packet.Data = buf.Bytes()
 
 	if packet.Type == "backup" {
-		backupPacket := typePacket.(*types.BackupJob)
+		backupPacket := typePacket.(*entities.BackupJob)
 
 		// Check if it's a valid backup
 		if backupPacket.Backup.Schedule == "" {
@@ -90,7 +90,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 		}
 	}
 
-	job := &types.Job{
+	job := &entities.Job{
 		ID:      id,
 		Done:    false,
 		Aborted: false,
@@ -98,7 +98,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 		Packet:    packet,
 		StartTime: time.Now(),
 	}
-	man.Jobs = append(man.Jobs, job)
+	man.jobs = append(man.jobs, job)
 
 	ok := man.enqueue(*packet)
 	if !ok {
@@ -108,7 +108,7 @@ func (man *Manager) NewJob(packet *types.JobPacket, typePacket interface{}) (str
 	return id, nil
 }
 
-func (man *Manager) updateJobProgress(job *types.Job, data []byte) {
+func (man *Manager) updateJobProgress(job *entities.Job, data []byte) {
 	man.jobsMutex.Lock()
 	defer man.jobsMutex.Unlock()
 	job.Progress = json.RawMessage(data)
@@ -126,14 +126,15 @@ func (man *Manager) updateJobProgress(job *types.Job, data []byte) {
 	case "summary":
 		job.Done = true
 		job.EndTime = time.Now()
+
 	case "error":
 		man.log.WithFields("job", job.ID).Warn("updateJobProgress: restic returned error", string(data))
 		job.Aborted = true
 	}
 }
 
-func (man *Manager) getJob(id string) *types.Job {
-	for _, job := range man.Jobs {
+func (man *Manager) getJob(id string) *entities.Job {
+	for _, job := range man.jobs {
 		if strings.EqualFold(job.ID, id) {
 			return job
 		}
@@ -142,13 +143,13 @@ func (man *Manager) getJob(id string) *types.Job {
 	return nil
 }
 
-func (man *Manager) stopJob(job *types.Job) error {
+func (man *Manager) stopJob(job *entities.Job) error {
 	packet := job.Packet
 	packet.Type = "stop"
 
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
-	err := enc.Encode(types.StopJob{
+	err := enc.Encode(entities.StopJob{
 		ID: job.ID,
 	})
 
@@ -195,6 +196,10 @@ func (man *Manager) wsWriter() {
 				}
 			}
 		default:
+			if man.ctx.Err() != nil {
+				man.log.Debug("wsWriter canceled")
+				return
+			}
 		}
 	}
 }

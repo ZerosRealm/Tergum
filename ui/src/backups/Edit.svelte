@@ -3,8 +3,6 @@
     import Modal from '../common/Modal.svelte';
     import { callAPI }  from '../common/API.js';
     
-    const dispatch = createEventDispatcher();
-    
     export let backup = {};
     let data = backup;
     let showModal = false;
