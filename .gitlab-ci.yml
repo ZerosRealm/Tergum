@@ -19,6 +19,7 @@ build-ui:
   - main
   script:
   - export ROLLUP_WATCH=false
+  - cd ui/
   - npm install
   - npm run build
   artifacts:
