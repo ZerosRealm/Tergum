@@ -9,7 +9,6 @@ import dotenv from 'dotenv';
 let result = dotenv.config();
 console.log("Dotenv:", result);
 
-
 const production = !process.env.ROLLUP_WATCH;
 const SERVER = process.env.SERVER || 'localhost:8080';
 

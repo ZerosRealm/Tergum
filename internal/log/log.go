@@ -79,6 +79,9 @@ func (log *Logger) Close() error {
 }
 
 func (log *Logger) WithFields(fields ...interface{}) *Logger {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	newFields := log.fields
 	if newFields == nil {
 		newFields = make(map[string]interface{})

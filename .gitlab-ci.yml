@@ -11,12 +11,28 @@ stages:
 variables:
   server_image: "$CI_REGISTRY/zerosrealm/tergum/tergum:latest"
   agent_image: "$CI_REGISTRY/zerosrealm/tergum/tergum-agent:latest"
-build:
+
+build-ui:
+  stage: build
+  image: node:latest-alpine
+  only:
+  - main
+  script:
+  - export ROLLUP_WATCH=false
+  - npm install
+  - npm run build
+  artifacts:
+    paths:
+    - ui/public
+
+build-go:
   stage: build
   image: golang:1.17-bullseye
   only:
   - main
   script:
+  - rm www/
+  - cp ui/public www/
   - go build -trimpath ./cmd/agent
   - go build -trimpath ./cmd/server
   artifacts:
