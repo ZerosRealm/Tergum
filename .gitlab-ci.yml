@@ -31,7 +31,7 @@ build-go:
   only:
   - main
   script:
-  - rm www/
+  - rm www/ -rf
   - cp ui/public www/
   - go build -trimpath ./cmd/agent
   - go build -trimpath ./cmd/server
