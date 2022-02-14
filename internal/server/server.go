@@ -18,10 +18,11 @@ import (
 	"zerosrealm.xyz/tergum/internal/log"
 	"zerosrealm.xyz/tergum/internal/restic"
 	"zerosrealm.xyz/tergum/internal/server/config"
+	manager "zerosrealm.xyz/tergum/internal/server/manager"
 	"zerosrealm.xyz/tergum/internal/server/service"
 )
 
-type persistentData struct {
+type PersistentData struct {
 	Mutex sync.Mutex
 
 	// Repos   []*entities.Repo
@@ -39,34 +40,18 @@ type persistentData struct {
 	// Schedules []*schedule
 }
 
-type Services struct {
-	repoSvc   service.RepoService
-	agentSvc  service.AgentService
-	backupSvc service.BackupService
-	forgetSvc service.ForgetService
-}
-
-func NewServices(repoSvc *service.RepoService, agentSvc *service.AgentService, backupSvc *service.BackupService, forgetSvc *service.ForgetService) *Services {
-	return &Services{
-		repoSvc:   *repoSvc,
-		agentSvc:  *agentSvc,
-		backupSvc: *backupSvc,
-		forgetSvc: *forgetSvc,
-	}
-}
-
 type Server struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
-	services  *Services
+	services  *service.Services
 
-	manager *Manager
+	manager *manager.Manager
 	conf    *config.Config
 	router  *mux.Router
 	log     *log.Logger
 }
 
-var savedData = persistentData{
+var savedData = PersistentData{
 	Mutex: sync.Mutex{},
 }
 var resticExe *restic.Restic
@@ -120,7 +105,7 @@ func loadData() {
 	}
 }
 
-func New(conf *config.Config, services *Services) (*Server, error) {
+func New(conf *config.Config, services *service.Services) (*Server, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// fields := make(map[string]interface{})
@@ -129,7 +114,7 @@ func New(conf *config.Config, services *Services) (*Server, error) {
 		cancel()
 		return nil, err
 	}
-	man := NewManager(ctx, services, logger)
+	man := manager.NewManager(ctx, services, logger, &wsConnections)
 
 	srv := &Server{
 		ctx:       ctx,
@@ -156,7 +141,7 @@ func (srv *Server) Start() {
 	resticExe = restic.New(srv.ctx, srv.conf.Restic)
 	go srv.manager.Start()
 
-	srv.manager.buildSchedules()
+	srv.manager.BuildSchedules()
 
 	srv.router.Handle("/", http.FileServer(http.Dir("www")))
 	srv.router.HandleFunc("/ws", srv.ws)
@@ -184,7 +169,7 @@ func (srv *Server) Start() {
 	srv.log.Info("shutting down")
 
 	defer srv.ctxCancel()
-	defer stopSchedulers()
+	defer manager.StopSchedulers()
 	if err := listener.Shutdown(srv.ctx); err != nil && err != context.DeadlineExceeded {
 		srv.log.Fatal(err)
 	}

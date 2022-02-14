@@ -11,3 +11,8 @@ type Backup struct {
 	Exclude  []string  `json:"exclude"`
 	LastRun  time.Time `json:"last_run"`
 }
+
+type BackupSubscribers struct {
+	BackupID int   `json:"backup_id"`
+	AgentIDs []int `json:"agent_ids"`
+}

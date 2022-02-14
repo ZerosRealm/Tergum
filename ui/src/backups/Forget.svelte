@@ -1,5 +1,4 @@
 <script>
-    import { createEventDispatcher } from 'svelte';
     import Modal from '../common/Modal.svelte';
     import { callAPI }  from '../common/API.js';
 

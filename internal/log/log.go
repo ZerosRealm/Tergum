@@ -2,6 +2,7 @@ package log
 
 import (
 	"os"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -10,6 +11,7 @@ type Logger struct {
 	stdOut  *logrus.Logger
 	fileOut *logrus.Logger
 
+	mutex  sync.RWMutex
 	fields logrus.Fields
 
 	logFile *os.File
@@ -44,6 +46,7 @@ func New(conf *Config, fields map[string]interface{}) (*Logger, error) {
 	logger := &Logger{
 		stdOut: stdLogger,
 		fields: fields,
+		mutex:  sync.RWMutex{},
 	}
 
 	if conf.File != "" {
@@ -90,14 +93,19 @@ func (log *Logger) WithFields(fields ...interface{}) *Logger {
 		}
 	}
 
+	// Copy the logger, including mutex to prevent consurrent map iteration and map write.
 	return &Logger{
 		stdOut:  log.stdOut,
 		fileOut: log.fileOut,
 		fields:  newFields,
+		mutex:   log.mutex,
 	}
 }
 
 func (log *Logger) Panic(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Panicln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Panicln(msg...)
@@ -105,6 +113,9 @@ func (log *Logger) Panic(msg ...interface{}) {
 }
 
 func (log *Logger) Fatal(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Fatalln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Fatalln(msg...)
@@ -112,6 +123,9 @@ func (log *Logger) Fatal(msg ...interface{}) {
 }
 
 func (log *Logger) Trace(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Traceln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Traceln(msg...)
@@ -119,6 +133,9 @@ func (log *Logger) Trace(msg ...interface{}) {
 }
 
 func (log *Logger) Debug(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Debugln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Debugln(msg...)
@@ -126,6 +143,9 @@ func (log *Logger) Debug(msg ...interface{}) {
 }
 
 func (log *Logger) Warn(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Warnln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Warnln(msg...)
@@ -133,6 +153,9 @@ func (log *Logger) Warn(msg ...interface{}) {
 }
 
 func (log *Logger) Info(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Infoln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Infoln(msg...)
@@ -140,6 +163,9 @@ func (log *Logger) Info(msg ...interface{}) {
 }
 
 func (log *Logger) Error(msg ...interface{}) {
+	log.mutex.Lock()
+	defer log.mutex.Unlock()
+
 	log.stdOut.WithFields(log.fields).Errorln(msg...)
 	if log.fileOut != nil {
 		log.fileOut.WithFields(log.fields).Errorln(msg...)

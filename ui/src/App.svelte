@@ -8,6 +8,7 @@
 	import Repos from './repos/Repos.svelte'
 	import Agents from './agents/Agents.svelte'
 	import Backups from './backups/Backups.svelte'
+	import Settings from './settings/Settings.svelte'
 
 	import Toasts from './common/Toasts.svelte'
 
@@ -20,6 +21,7 @@
 	router('/repos', () => {page = Repos; currentPage = "repos"})
 	router('/agents', () => {page = Agents; currentPage = "agents"})
 	router('/backups', () => {page = Backups; currentPage = "backups"})
+	router('/settings', () => {page = Settings; currentPage = "settings"})
 
     socket.subscribe(event => {
         if (event.data == "") {
@@ -136,6 +138,7 @@ nav ul li.active {
             <a href="/repos"><li class:active="{currentPage == 'repos'}">Repos</li></a>
             <a href="/agents"><li class:active="{currentPage == 'agents'}">Agents</li></a>
             <a href="/backups"><li class:active="{currentPage == 'backups'}">Backups</li></a>
+            <a href="/settings"><li class:active="{currentPage == 'settings'}">Settings</li></a>
         </ul>
     </nav>
 </div>

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/robfig/cron/v3"
 	"zerosrealm.xyz/tergum/internal/entities"
 )
@@ -19,9 +18,9 @@ type schedule struct {
 
 var schedules = []*schedule{}
 
-func (man *Manager) buildSchedules() {
+func (man *Manager) BuildSchedules() {
 	man.log.Debug("Building schedules")
-	backups, err := man.services.backupSvc.GetAll()
+	backups, err := man.services.BackupSvc.GetAll()
 	if err != nil {
 		man.log.Error("buildSchedules: could not get backups", err)
 		return
@@ -29,31 +28,48 @@ func (man *Manager) buildSchedules() {
 
 	for _, backup := range backups {
 		man.log.Debug("Adding schedule for backup", fmt.Sprintf("#%d", backup.ID))
-		man.addSchedule(backup.Schedule, backup.ID)
+		man.AddSchedule(backup.Schedule, backup.ID)
 	}
 }
 
-func (schedule *schedule) start() ([]string, error) {
-	backup, err := schedule.manager.services.backupSvc.Get([]byte(strconv.Itoa(schedule.BackupID)))
+func (schedule *schedule) Start() ([]*entities.Job, error) {
+	backup, err := schedule.manager.services.BackupSvc.Get([]byte(strconv.Itoa(schedule.BackupID)))
 	if err != nil {
 		return nil, err
 	}
 
 	schedule.manager.log.WithFields("backup", backup.ID).Debug("Starting backup")
 
-	// subscribers := schedule.manager.services.backupSvc.
+	subcribers, err := schedule.manager.services.BackupSubSvc.Get([]byte(strconv.Itoa(schedule.BackupID)))
+	if err != nil {
+		return nil, err
+	}
 
-	spew.Dump(backup)
-
-	if len(savedData.BackupSubscribers[backup.ID]) == 0 {
+	if subcribers == nil || len(subcribers.AgentIDs) == 0 {
 		schedule.manager.log.WithFields("backup", backup.ID).Debug("No subscribers, skipping backup")
 		return nil, nil
 	}
 
-	jobs := []string{}
-	for _, agent := range savedData.BackupSubscribers[backup.ID] {
+	agents := make([]*entities.Agent, 0)
+	for _, agentID := range subcribers.AgentIDs {
+		agent, err := schedule.manager.services.AgentSvc.Get([]byte(strconv.Itoa(agentID)))
+		if err != nil {
+			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: could not get agent", err)
+			continue
+		}
+
+		if agent == nil {
+			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: no agent found with ID defined as backup subscriber")
+			continue
+		}
+
+		agents = append(agents, agent)
+	}
+
+	jobs := []*entities.Job{}
+	for _, agent := range agents {
 		target := strconv.Itoa(backup.Target)
-		repo, err := schedule.manager.services.repoSvc.Get([]byte(target))
+		repo, err := schedule.manager.services.RepoSvc.Get([]byte(target))
 		if err != nil {
 			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: could not get repos", err)
 			continue
@@ -64,29 +80,30 @@ func (schedule *schedule) start() ([]string, error) {
 			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: no repo found with ID defined in backup target")
 			break
 		}
-		job := entities.JobPacket{
+
+		jobPacket := &entities.JobPacket{
 			Type:  "backup",
 			Agent: agent,
 			Repo:  repo,
 		}
 
-		backupJob := entities.BackupJob{
+		backupJob := &entities.BackupJob{
 			Backup: backup,
 		}
 
-		id, err := schedule.manager.NewJob(&job, &backupJob)
+		job, err := schedule.manager.NewJob(jobPacket, backupJob)
 		if err != nil {
-			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: job could not be enqueued", err)
+			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: could not create new job", err)
 			return nil, err
 		}
-		schedule.manager.log.WithFields("backup", backup.ID).Debug("Enqueuing job", id, "for agent", agent.Name)
-		jobs = append(jobs, id)
+		schedule.manager.log.WithFields("backup", backup.ID).Debug("Enqueuing job", job.ID, "for agent", agent.Name)
+		jobs = append(jobs, job)
 	}
 
 	return jobs, nil
 }
 
-func getSchedule(backupID int) *schedule {
+func GetSchedule(backupID int) *schedule {
 	for _, sch := range schedules {
 		if sch.BackupID == backupID {
 			return sch
@@ -95,7 +112,7 @@ func getSchedule(backupID int) *schedule {
 	return nil
 }
 
-func getSchedules(cronSchedule string) []*schedule {
+func GetSchedules(cronSchedule string) []*schedule {
 	matches := []*schedule{}
 	for _, sch := range schedules {
 		if sch.Schedule == cronSchedule {
@@ -105,19 +122,19 @@ func getSchedules(cronSchedule string) []*schedule {
 	return matches
 }
 
-func (man *Manager) addSchedule(cronSchedule string, backupID int) *schedule {
+func (man *Manager) AddSchedule(cronSchedule string, backupID int) *schedule {
 	schedule := schedule{
 		BackupID: backupID,
 		manager:  man,
 	}
 
-	schedule.newScheduler(cronSchedule)
+	schedule.NewScheduler(cronSchedule)
 	schedules = append(schedules, &schedule)
 
 	return &schedule
 }
 
-func (sch *schedule) newScheduler(cronSchedule string) {
+func (sch *schedule) NewScheduler(cronSchedule string) {
 	if sch.Scheduler != nil {
 		sch.Scheduler.Stop()
 	}
@@ -127,19 +144,19 @@ func (sch *schedule) newScheduler(cronSchedule string) {
 	sch.Scheduler = scheduler
 
 	scheduler.AddFunc(sch.Schedule, func() {
-		sch.start()
+		sch.Start()
 	})
 
 	scheduler.Start()
 }
 
-func stopSchedulers() {
+func StopSchedulers() {
 	for _, schedule := range schedules {
 		schedule.Scheduler.Stop()
 	}
 }
 
-func removeSchedule(backupID int) {
+func RemoveSchedule(backupID int) {
 	for i, schedule := range schedules {
 		if schedule.BackupID == backupID {
 			schedule.Scheduler.Stop()

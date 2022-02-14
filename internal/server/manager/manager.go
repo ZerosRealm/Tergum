@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,31 +16,34 @@ import (
 
 	"zerosrealm.xyz/tergum/internal/entities"
 	"zerosrealm.xyz/tergum/internal/log"
+	"zerosrealm.xyz/tergum/internal/server/service"
 )
 
 type Manager struct {
-	ctx       context.Context
-	jobs      []*entities.Job
+	ctx context.Context
+	// jobs      []*entities.Job
 	jobsMutex *sync.Mutex
-	services  *Services
+	services  *service.Services
 
 	log *log.Logger
 
-	wsWrite  chan []byte
-	jobQueue chan entities.JobPacket
+	wsWrite       chan []byte
+	jobQueue      chan entities.JobPacket
+	wsConnections *map[string]*websocket.Conn
 }
 
-func NewManager(ctx context.Context, services *Services, logger *log.Logger) *Manager {
+func NewManager(ctx context.Context, services *service.Services, logger *log.Logger, wsConns *map[string]*websocket.Conn) *Manager {
 	return &Manager{
-		ctx:       ctx,
-		jobs:      make([]*entities.Job, 0),
+		ctx: ctx,
+		// jobs:      make([]*entities.Job, 0),
 		jobsMutex: &sync.Mutex{},
 		services:  services,
 
 		log: logger.WithFields("component", "manager"),
 
-		wsWrite:  make(chan []byte, 100),
-		jobQueue: make(chan entities.JobPacket, 100),
+		wsWrite:       make(chan []byte, 100),
+		jobQueue:      make(chan entities.JobPacket, 100),
+		wsConnections: wsConns,
 	}
 }
 
@@ -50,7 +52,7 @@ func (man *Manager) Start() {
 	go man.queueHandler()
 }
 
-func (man *Manager) NewJob(packet *entities.JobPacket, typePacket interface{}) (string, error) {
+func (man *Manager) NewJob(packet *entities.JobPacket, typePacket interface{}) (*entities.Job, error) {
 	man.jobsMutex.Lock()
 	defer man.jobsMutex.Unlock()
 
@@ -64,7 +66,7 @@ func (man *Manager) NewJob(packet *entities.JobPacket, typePacket interface{}) (
 
 	if err != nil {
 		spew.Dump(typePacket)
-		return id, fmt.Errorf("manager.newJob: failed to encode job packet: %w", err)
+		return nil, fmt.Errorf("manager.newJob: failed to encode job packet: %w", err)
 	}
 	packet.Data = buf.Bytes()
 
@@ -73,18 +75,18 @@ func (man *Manager) NewJob(packet *entities.JobPacket, typePacket interface{}) (
 
 		// Check if it's a valid backup
 		if backupPacket.Backup.Schedule == "" {
-			return id, fmt.Errorf("manager.newJob: job %s error: backup data is empty", id)
+			return nil, fmt.Errorf("manager.newJob: job %s error: backup data is empty", id)
 		}
 
-		backups, err := man.services.backupSvc.GetAll()
+		backups, err := man.services.BackupSvc.GetAll()
 		if err != nil {
-			return id, fmt.Errorf("manager.newJob: job %s error: %w", id, err)
+			return nil, fmt.Errorf("manager.newJob: job %s error: %w", id, err)
 		}
 
 		for _, backup := range backups {
 			if backup.ID == backupPacket.Backup.ID {
 				backup.LastRun = time.Now()
-				man.services.backupSvc.Update(backup)
+				man.services.BackupSvc.Update(backup)
 				break
 			}
 		}
@@ -98,17 +100,28 @@ func (man *Manager) NewJob(packet *entities.JobPacket, typePacket interface{}) (
 		Packet:    packet,
 		StartTime: time.Now(),
 	}
-	man.jobs = append(man.jobs, job)
+
+	job, err = man.services.JobSvc.Create(job)
+	if err != nil {
+		return nil, fmt.Errorf("manager.newJob: job %s could not get created: %w", id, err)
+	}
 
 	ok := man.enqueue(*packet)
 	if !ok {
-		return id, fmt.Errorf("manager.newJob: job %s could not be enqueued", id)
+		job.Aborted = true
+
+		_, updateErr := man.services.JobSvc.Update(job)
+		if updateErr != nil {
+			man.log.WithFields("job", job.ID).Error("manager.newJob: failed to enqueue job, and could not update to aborted", updateErr)
+		}
+
+		return nil, fmt.Errorf("manager.newJob: job %s could not be enqueued", id)
 	}
 
-	return id, nil
+	return job, nil
 }
 
-func (man *Manager) updateJobProgress(job *entities.Job, data []byte) {
+func (man *Manager) UpdateJobProgress(job *entities.Job, data []byte) {
 	man.jobsMutex.Lock()
 	defer man.jobsMutex.Unlock()
 	job.Progress = json.RawMessage(data)
@@ -133,17 +146,7 @@ func (man *Manager) updateJobProgress(job *entities.Job, data []byte) {
 	}
 }
 
-func (man *Manager) getJob(id string) *entities.Job {
-	for _, job := range man.jobs {
-		if strings.EqualFold(job.ID, id) {
-			return job
-		}
-	}
-
-	return nil
-}
-
-func (man *Manager) stopJob(job *entities.Job) error {
+func (man *Manager) StopJob(job *entities.Job) error {
 	packet := job.Packet
 	packet.Type = "stop"
 
@@ -188,7 +191,7 @@ func (man *Manager) wsWriter() {
 				man.log.Debug("wsWriter canceled")
 				return
 			}
-			for _, c := range wsConnections {
+			for _, c := range *man.wsConnections {
 				err := c.WriteMessage(websocket.TextMessage, msg)
 				if err != nil {
 					man.log.Error("wsWriter: ", err)
