@@ -14,7 +14,7 @@ variables:
 
 build-ui:
   stage: build
-  image: node:latest-alpine
+  image: node:17-alpine
   only:
   - main
   script:
