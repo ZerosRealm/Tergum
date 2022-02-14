@@ -33,7 +33,7 @@ build-go:
   - main
   script:
   - rm www/ -rf
-  - cp ui/public www/
+  - cp ui/public www/ -r
   - go build -trimpath ./cmd/agent
   - go build -trimpath ./cmd/server
   artifacts:
