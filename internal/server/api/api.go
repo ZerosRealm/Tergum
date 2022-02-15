@@ -78,7 +78,7 @@ func (api *API) template() http.HandlerFunc {
 		// var req request
 		// err := api.decode(w, r, &req)
 		// if err != nil {
-		// 	api.error(w, r, err, http.StatusBadRequest)
+		// 	api.error(w, r, msgDecodeError, err, http.StatusBadRequest)
 		// 	return
 		// }
 	}

@@ -47,7 +47,7 @@ func updateHandler(ctx context.Context) {
 			}
 			msg, err := json.Marshal(jobProgress{Msg: update.Msg})
 			if err != nil {
-				logger.WithFields("function", "updateHandler").Trace("update dump:", spew.Sdump(update))
+				logger.WithFields("function", "updateHandler").Debug("update dump:", spew.Sdump(update))
 				logger.WithFields("function", "updateHandler").Error("marshalling update error:", err)
 				continue
 			}
@@ -89,7 +89,7 @@ func updateHandler(ctx context.Context) {
 
 			msg, err := json.Marshal(jobUpdate{Msg: string(jobErr.Msg), Error: jobErr.Error.Error()})
 			if err != nil {
-				logger.WithFields("function", "updateHandler").Trace("jobError dump:", spew.Sdump(jobErr))
+				logger.WithFields("function", "updateHandler").Debug("jobError dump:", spew.Sdump(jobErr))
 				logger.WithFields("function", "updateHandler").Error("marshalling jobError error:", err)
 				continue
 			}
@@ -146,7 +146,7 @@ func handleConnection(c net.Conn) {
 	}
 
 	if packet.Agent.PSK != conf.PSK {
-		logger.WithFields("function", "handleConnection", "job", packet.ID, "source", c.RemoteAddr().String()).Trace("job PSK:", packet.Agent.PSK)
+		logger.WithFields("function", "handleConnection", "job", packet.ID, "source", c.RemoteAddr().String()).Debug("job PSK:", packet.Agent.PSK)
 		logger.WithFields("function", "handleConnection", "job", packet.ID, "source", c.RemoteAddr().String()).Warn("PSK mismatch")
 		return
 	}
@@ -156,7 +156,7 @@ func handleConnection(c net.Conn) {
 		var job entities.BackupJob
 		dec := gob.NewDecoder(bytes.NewReader(packet.Data))
 		err := dec.Decode(&job)
-		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Debug("job data:", spew.Sdump(packet))
 
 		if err != nil {
 			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("decoding job error:", err)
@@ -171,12 +171,12 @@ func handleConnection(c net.Conn) {
 			return
 		}
 
-		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("output:", string(out))
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Debug("output:", string(out))
 	case "restore":
 		var job entities.RestoreJob
 		dec := gob.NewDecoder(bytes.NewReader(packet.Data))
 		err := dec.Decode(&job)
-		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Debug("job data:", spew.Sdump(packet))
 
 		if err != nil {
 			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("decoding job error:", err)
@@ -192,13 +192,13 @@ func handleConnection(c net.Conn) {
 			return
 		}
 
-		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("output:", string(out))
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Debug("output:", string(out))
 		delete(jobs, packet.ID)
 	case "stop":
 		var job entities.StopJob
 		dec := gob.NewDecoder(bytes.NewReader(packet.Data))
 		err := dec.Decode(&job)
-		logger.WithFields("function", "handleConnection", "job", packet.ID).Trace("job data:", spew.Sdump(packet))
+		logger.WithFields("function", "handleConnection", "job", packet.ID).Debug("job data:", spew.Sdump(packet))
 
 		if err != nil {
 			logger.WithFields("function", "handleConnection", "job", packet.ID).Error("decoding job error:", err)

@@ -109,7 +109,7 @@ func New(conf *config.Config, services *service.Services) (*Server, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// fields := make(map[string]interface{})
-	logger, err := log.New(&conf.Log, nil)
+	logger, err := log.New(&conf.Log)
 	if err != nil {
 		cancel()
 		return nil, err
