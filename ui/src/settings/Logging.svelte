@@ -54,7 +54,7 @@
     <option value="debug">Debug</option>
     <option value="trace">Trace</option>
 </select>
-<span><i><b>Note:</b> Error is the least verbose, only showing errors, debug being the most verbose, usually used in testing.</i></span>
+<span><i><b>Note:</b> Error is the least verbose, only showing errors, debug being the most verbose showing all levels, usually used in testing.</i></span>
 
 <button type="button" class="btn btn-primary float-end" on:click={save}>Save</button>
 {/if}

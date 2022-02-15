@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -12,6 +13,8 @@ type Logger struct {
 	zap    *zap.SugaredLogger
 	config *Config
 	fields []interface{}
+
+	atomLevel zap.AtomicLevel
 
 	// logFile *os.File
 }
@@ -41,11 +44,31 @@ var zapConfig = zapcore.EncoderConfig{
 	EncodeCaller:   zapcore.ShortCallerEncoder,
 }
 
-func newZapLogger(conf *Config) (*zap.SugaredLogger, error) {
-	level, err := zap.ParseAtomicLevel(conf.Level)
+func parseLevel(level string) (zapcore.Level, error) {
+	switch level {
+	case "debug":
+		return zap.DebugLevel, nil
+	case "info":
+		return zap.InfoLevel, nil
+	case "warn":
+		return zap.WarnLevel, nil
+	case "error":
+		return zap.ErrorLevel, nil
+	case "fatal":
+		return zap.FatalLevel, nil
+	case "panic":
+		return zap.PanicLevel, nil
+	default:
+		return zap.InfoLevel, fmt.Errorf("unknown level: %s", level)
+	}
+}
+
+func newZapLogger(conf *Config, atom zap.AtomicLevel) (*zap.SugaredLogger, error) {
+	level, err := parseLevel(conf.Level)
 	if err != nil {
 		return nil, err
 	}
+	atom.SetLevel(level)
 
 	consoleOut := zapcore.Lock(os.Stdout)
 
@@ -66,23 +89,26 @@ func newZapLogger(conf *Config) (*zap.SugaredLogger, error) {
 	consoleEncoder := zapcore.NewConsoleEncoder(newZapConf)
 
 	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, consoleOut, level),
-		zapcore.NewCore(fileEncoder, fileOut, level),
+		zapcore.NewCore(consoleEncoder, consoleOut, atom),
+		zapcore.NewCore(fileEncoder, fileOut, atom),
 	)
 
-	return zap.New(core).Sugar(), nil
+	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1), zap.AddStacktrace(zap.ErrorLevel)).Sugar(), nil
 }
 
 func New(conf *Config, fields ...interface{}) (*Logger, error) {
-	zapLogger, err := newZapLogger(conf)
+	atom := zap.NewAtomicLevel()
+
+	zapLogger, err := newZapLogger(conf, atom)
 	if err != nil {
 		return nil, err
 	}
 
 	logger := &Logger{
-		zap:    zapLogger,
-		config: conf,
-		fields: fields,
+		zap:       zapLogger,
+		config:    conf,
+		fields:    fields,
+		atomLevel: atom,
 	}
 
 	return logger, nil
@@ -94,9 +120,10 @@ func (log *Logger) Close() error {
 
 func (log *Logger) WithFields(fields ...interface{}) *Logger {
 	return &Logger{
-		zap:    log.zap,
-		config: log.config,
-		fields: fields,
+		zap:       log.zap,
+		config:    log.config,
+		fields:    fields,
+		atomLevel: log.atomLevel,
 	}
 }
 
@@ -108,13 +135,13 @@ func (log *Logger) SetLevel(level string) bool {
 	prevLevel := log.config.Level
 	log.config.Level = level
 
-	zapLogger, err := newZapLogger(log.config)
+	newLevel, err := parseLevel(level)
 	if err != nil {
 		log.config.Level = prevLevel
 		return false
 	}
 
-	log.zap = zapLogger
+	log.atomLevel.SetLevel(newLevel)
 	return true
 }
 
@@ -128,7 +155,7 @@ func (log *Logger) Panic(msg ...interface{}) {
 
 func (log *Logger) Fatal(msg ...interface{}) {
 	if log.fields != nil && len(log.fields) != 0 {
-		log.zap.With(log.fields...).Fatal(msg...)
+		log.zap.With(log.fields...).Fatal()
 		return
 	}
 	log.zap.Fatal(msg...)

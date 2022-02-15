@@ -23,7 +23,9 @@ func (srv *Server) ws(w http.ResponseWriter, req *http.Request) {
 	for {
 		mt, msg, err := c.ReadMessage()
 		if err != nil {
-			srv.log.Error("ws: error reading message", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				srv.log.Error("ws: error reading message", err)
+			}
 			break
 		}
 
