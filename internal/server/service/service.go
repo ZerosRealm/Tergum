@@ -7,9 +7,10 @@ type Services struct {
 	BackupSubSvc BackupSubscriberService
 	ForgetSvc    ForgetService
 	JobSvc       JobService
+	SettingSvc   SettingService
 }
 
-func NewServices(repoSvc *RepoService, agentSvc *AgentService, backupSvc *BackupService, backupSubSvc *BackupSubscriberService, forgetSvc *ForgetService, jobSvc *JobService) *Services {
+func NewServices(repoSvc *RepoService, agentSvc *AgentService, backupSvc *BackupService, backupSubSvc *BackupSubscriberService, forgetSvc *ForgetService, jobSvc *JobService, settingSvc *SettingService) *Services {
 	return &Services{
 		RepoSvc:      *repoSvc,
 		AgentSvc:     *agentSvc,
@@ -17,5 +18,6 @@ func NewServices(repoSvc *RepoService, agentSvc *AgentService, backupSvc *Backup
 		BackupSubSvc: *backupSubSvc,
 		ForgetSvc:    *forgetSvc,
 		JobSvc:       *jobSvc,
+		SettingSvc:   *settingSvc,
 	}
 }

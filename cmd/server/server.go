@@ -12,6 +12,7 @@ import (
 	"zerosrealm.xyz/tergum/internal/server/service/adapter/forget"
 	"zerosrealm.xyz/tergum/internal/server/service/adapter/job"
 	"zerosrealm.xyz/tergum/internal/server/service/adapter/repo"
+	"zerosrealm.xyz/tergum/internal/server/service/adapter/setting"
 )
 
 func main() {
@@ -38,6 +39,9 @@ func main() {
 	var jobCache service.JobCache
 	var jobStorage service.JobStorage
 
+	var settingCache service.SettingCache
+	var settingStorage service.SettingStorage
+
 	switch conf.Database.Driver {
 	case "memory":
 		repoStorage = repo.NewMemoryStorage()
@@ -46,6 +50,7 @@ func main() {
 		backupSubStorage = backupSubscribers.NewMemoryStorage()
 		forgetStorage = forget.NewMemoryStorage()
 		jobStorage = job.NewMemoryStorage()
+		settingStorage = setting.NewMemoryStorage()
 	case "postgres":
 		log.Fatal("postgres storage not implemented")
 	case "sqlite":
@@ -85,12 +90,19 @@ func main() {
 		}
 		defer jobSQL.Close()
 
+		settingSQL, err := setting.NewSQLiteStorage(conf.Database.DataSourceName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer settingSQL.Close()
+
 		repoStorage = repoSQL
 		agentStorage = agentSQL
 		backupStorage = backupSQL
 		backupSubStorage = backupSubSQL
 		forgetStorage = forgetSQL
 		jobStorage = jobSQL
+		settingStorage = settingSQL
 	default:
 		log.Fatal("unsupported database driver")
 	}
@@ -102,8 +114,11 @@ func main() {
 	case "memory":
 		repoCache = repo.NewMemoryCache()
 		agentCache = agent.NewMemoryCache()
+		backupSubCache = backupSubscribers.NewMemoryCache()
 		backupCache = backup.NewMemoryCache()
 		forgetCache = forget.NewMemoryCache()
+		jobCache = job.NewMemoryCache()
+		settingCache = setting.NewMemoryCache()
 	default:
 		log.Println("continuing without cache")
 	}
@@ -114,8 +129,9 @@ func main() {
 	backupSubSvc := service.NewBackupSubscriberService(&backupSubCache, &backupSubStorage)
 	forgetSvc := service.NewForgetService(&forgetCache, &forgetStorage)
 	jobSvc := service.NewJobService(&jobCache, &jobStorage)
+	settingSvc := service.NewSettingService(&settingCache, &settingStorage)
 
-	services := service.NewServices(repoSvc, agentSvc, backupSvc, backupSubSvc, forgetSvc, jobSvc)
+	services := service.NewServices(repoSvc, agentSvc, backupSvc, backupSubSvc, forgetSvc, jobSvc, settingSvc)
 
 	log.Println("starting server")
 	server, err := server.New(conf, services)
