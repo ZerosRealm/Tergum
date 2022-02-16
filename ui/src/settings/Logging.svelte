@@ -1,6 +1,5 @@
 <script>
     import { onMount} from 'svelte';
-    import Modal from '../common/Modal.svelte';
     import { callAPI }  from '../common/API.js';
 
     onMount(async () => {
@@ -12,7 +11,7 @@
 
     function getSettings() {
         loading = true;
-        callAPI('/settings/logging', {
+        callAPI('/setting/logging', {
             method: 'GET'
         })
         .then(data => {
@@ -23,7 +22,7 @@
 
     function save() {
         loading = true;
-        callAPI('/settings/logging', {
+        callAPI('/setting/logging', {
             method: 'PUT',
             body: JSON.stringify(settings)
         })

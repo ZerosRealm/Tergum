@@ -127,6 +127,10 @@ func (log *Logger) WithFields(fields ...interface{}) *Logger {
 	}
 }
 
+func (log *Logger) GetFilePath() string {
+	return log.config.File.Path
+}
+
 func (log *Logger) GetLevel() string {
 	return log.config.Level
 }

@@ -2,6 +2,7 @@
     import Modal from '../common/Modal.svelte';
     import { callAPI }  from '../common/API.js';
 
+    import Logs from './Logs.svelte';
     import Logging from './Logging.svelte';
 
 </script>
@@ -13,4 +14,6 @@
 </style>
 
 <Logging />
-<hr>
+<hr/>
+<Logs />
+<hr/>

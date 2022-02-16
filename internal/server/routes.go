@@ -68,8 +68,10 @@ func (srv *Server) routes() {
 	apiRoute.Handle("/forget/{id}", api.GetForget()).Methods("GET")
 	apiRoute.Handle("/forget/{id}", api.UpdateForget()).Methods("PUT")
 
-	apiRoute.Handle("/settings/logging", api.SettingsLoggingGet()).Methods("GET")
-	apiRoute.Handle("/settings/logging", api.SettingsLoggingSet()).Methods("PUT")
+	apiRoute.Handle("/setting/logging", api.SettingsLoggingGet()).Methods("GET")
+	apiRoute.Handle("/setting/logging", api.SettingsLoggingSet()).Methods("PUT")
+
+	apiRoute.Handle("/log", api.GetLogs()).Methods("GET")
 
 	srv.router.Use(mux.CORSMethodMiddleware(srv.router))
 	srv.router.Use(cors)

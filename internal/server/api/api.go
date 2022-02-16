@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"zerosrealm.xyz/tergum/internal/log"
@@ -61,7 +62,7 @@ func (api *API) respond(w http.ResponseWriter, r *http.Request, data interface{}
 		}
 	}
 
-	api.log.WithFields("method", r.Method, "path", r.URL.Path, "status", status, "src", r.RemoteAddr).Debug()
+	api.log.WithFields("method", r.Method, "path", r.URL.Path, "status", status, "src", r.RemoteAddr).Debug(fmt.Sprintf("%s %s - %d", r.Method, r.URL.Path, status))
 }
 
 func (api *API) decode(w http.ResponseWriter, r *http.Request, v interface{}) error {
