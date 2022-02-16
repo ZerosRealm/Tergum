@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"zerosrealm.xyz/tergum/internal/entities"
@@ -13,7 +14,7 @@ import (
 
 func (api *API) GetSnapshots(resticExe *restic.Restic) http.HandlerFunc {
 	type response struct {
-		Snapshots []restic.Snapshot `json:"snapshots"`
+		Snapshots []*restic.Snapshot `json:"snapshots"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -132,5 +133,87 @@ func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 		api.log.Debug("Enqueuing job %s for %s", job.ID, agent.Name)
 
 		api.respond(w, r, response{Job: job}, http.StatusOK)
+	}
+}
+
+func (api *API) ListSnapshot(resticExe *restic.Restic) http.HandlerFunc {
+	type file struct {
+		*restic.FileNode
+		Files []*file `json:"files"`
+	}
+
+	type response struct {
+		Directories []*file `json:"directories"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		repoID := vars["id"]
+		snapshot := vars["snapshot"]
+
+		repo, err := api.services.RepoSvc.Get([]byte(repoID))
+		if err != nil {
+			api.error(w, r, "Could not get repository.", err, http.StatusInternalServerError)
+			return
+		}
+
+		if repo == nil {
+			api.error(w, r, "No repository with that ID.", fmt.Errorf("no repo with that ID"), http.StatusNotFound)
+			return
+		}
+
+		nodes, err := resticExe.List(repo.Repo, repo.Password, snapshot, repo.Settings...)
+		if err != nil {
+			api.error(w, r, "Could not list files inside snapshot.", err, http.StatusInternalServerError)
+			return
+		}
+
+		dirIndex := make([]*file, 0)
+		rootDirs := make([]*file, 0)
+		for _, node := range nodes {
+			if node.Type == "dir" {
+				dir := &file{
+					FileNode: node,
+					Files:    make([]*file, 0),
+				}
+				dirIndex = append(dirIndex, dir)
+
+				found := false
+				for _, parentDir := range dirIndex {
+					parentPath := parentDir.FileNode.Path
+
+					temp := strings.Split(dir.Path, "/")
+					dirPath := temp[0 : len(temp)-1]
+
+					if parentPath == strings.Join(dirPath, "/") {
+						parentDir.Files = append(parentDir.Files, dir)
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					rootDirs = append(rootDirs, dir)
+				}
+			}
+
+			if node.Type == "file" {
+				for _, dir := range dirIndex {
+					dirPath := dir.FileNode.Path
+
+					temp := strings.Split(node.Path, "/")
+					filePath := temp[0 : len(temp)-1]
+
+					if dirPath == strings.Join(filePath, "/") {
+						dir.Files = append(dir.Files, &file{
+							FileNode: node,
+							Files:    make([]*file, 0),
+						})
+					}
+				}
+			}
+		}
+
+		api.respond(w, r, response{Directories: rootDirs}, http.StatusOK)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 // Restic executable.
@@ -189,7 +190,7 @@ type Snapshot struct {
 }
 
 // Snapshots from repo.
-func (r *Restic) Snapshots(repo, password string, env ...string) ([]Snapshot, error) {
+func (r *Restic) Snapshots(repo, password string, env ...string) ([]*Snapshot, error) {
 	args := []string{
 		"snapshots",
 		"--json",
@@ -213,7 +214,7 @@ func (r *Restic) Snapshots(repo, password string, env ...string) ([]Snapshot, er
 		return nil, fmt.Errorf("%s", string(out))
 	}
 
-	var snapshots []Snapshot
+	var snapshots []*Snapshot
 	err = json.Unmarshal(out, &snapshots)
 	if err != nil {
 		return nil, err
@@ -281,4 +282,60 @@ func (r *Restic) Forget(repo, password, snapshot string, options *ForgetOptions,
 	cmd.Env = append(cmd.Env, env...)
 
 	return cmd.CombinedOutput()
+}
+
+type FileNode struct {
+	StructType string    `json:"struct_type"`
+	Name       string    `json:"name"`
+	Type       string    `json:"type"`
+	Path       string    `json:"path"`
+	UID        int       `json:"uid"`
+	GID        int       `json:"gid"`
+	Mode       int       `json:"mode"`
+	MTime      time.Time `json:"mtime"`
+	ATime      time.Time `json:"atime"`
+	CTime      time.Time `json:"ctime"`
+}
+
+// List files in repo.
+func (r *Restic) List(repo, password, snapshot string, env ...string) ([]*FileNode, error) {
+	args := []string{
+		"ls",
+		snapshot,
+		"--json",
+		"--repo",
+		repo,
+	}
+
+	cmd := exec.Command(r.exe, args...)
+
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "RESTIC_PASSWORD="+password)
+	cmd.Env = append(cmd.Env, env...)
+
+	out, err := cmd.CombinedOutput()
+
+	if err != nil {
+		if len(out) == 0 {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("%s", string(out))
+	}
+
+	nodes := make([]*FileNode, 0)
+	for _, line := range bytes.Split(out, []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+
+		node := &FileNode{}
+		err = json.Unmarshal(line, node)
+		if err != nil {
+			return nil, fmt.Errorf("restic.List: could not unmarshal node data: %w", err)
+		}
+		nodes = append(nodes, node)
+	}
+
+	return nodes, err
 }

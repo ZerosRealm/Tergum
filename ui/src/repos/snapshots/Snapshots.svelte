@@ -5,6 +5,8 @@
     import Delete from './Delete.svelte'
     import Reset from './Reset.svelte'
     import Restore from './Restore.svelte'
+
+    import Explorer from './explorer/Explorer.svelte'
     
     const dispatch = createEventDispatcher();
     
@@ -78,6 +80,7 @@
                             <td>{snapshot.paths}</td>
                             <td>
                                 <Delete {repo} {snapshot} on:refresh={refresh} on:click={toggleModal} />
+                                <Explorer {repo} {snapshot} on:refresh={refresh} />
                                 <Restore {repo} {snapshot} on:refresh={refresh} />
                             </td>
                         </tr>

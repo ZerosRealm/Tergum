@@ -5,6 +5,7 @@
 	const close = () => dispatch('close');
 
 	export let fit;
+	export let extraClass = '';
 
 	let modal;
 	let comp;
@@ -50,7 +51,7 @@
 
 	<div class="modal-background" on:click={close}></div>
 
-	<div class="showModal" role="dialog" aria-modal="true" class:fit={fit} bind:this={modal}>
+	<div class="showModal {extraClass}" role="dialog" aria-modal="true" class:fit={fit} bind:this={modal}>
 		<slot name="header"></slot>
 		<hr>
 		<slot></slot>
