@@ -1,6 +1,7 @@
 <script>
     import { onMount} from 'svelte';
     import { callAPI }  from '../common/API.js';
+    import { addToast }  from '../common/toasts.js';
 
     onMount(async () => {
         getSettings();
@@ -21,14 +22,18 @@
     }
 
     function save() {
-        loading = true;
         callAPI('/setting/logging', {
             method: 'PUT',
             body: JSON.stringify(settings)
         })
         .then(data => {
-            loading = false;
             settings = data;
+
+            addToast({
+                type: 'success',
+                title: 'Saved!',
+                message: 'Settings saved.'
+            });
         })
     }
 </script>
@@ -55,5 +60,6 @@
 </select>
 <span><i><b>Note:</b> Error is the least verbose, only showing errors, debug being the most verbose showing all levels, usually used in testing.</i></span>
 
-<button type="button" class="btn btn-primary float-end" on:click={save}>Save</button>
+<br>
+<button type="button" class="btn btn-primary" on:click={save}>Save</button>
 {/if}

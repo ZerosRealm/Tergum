@@ -4,6 +4,7 @@
 
     import Logs from './Logs.svelte';
     import Logging from './Logging.svelte';
+    import Registration from './Registration.svelte';
 
 </script>
 <style>
@@ -14,6 +15,8 @@
 </style>
 
 <Logging />
+<hr/>
+<Registration />
 <hr/>
 <Logs />
 <hr/>

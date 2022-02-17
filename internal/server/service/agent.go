@@ -37,7 +37,7 @@ func NewAgentService(cache *AgentCache, storage *AgentStorage) *AgentService {
 
 func (svc *AgentService) Get(id []byte) (*entities.Agent, error) {
 	if svc.cache != nil {
-		agent, err := svc.storage.Get(id)
+		agent, err := svc.cache.Get(id)
 		if err != nil {
 			return nil, fmt.Errorf("agentSvc.Get: could not get agent from cache: %w", err)
 		}
@@ -51,12 +51,19 @@ func (svc *AgentService) Get(id []byte) (*entities.Agent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("agentSvc.Get: could not get agent from storage: %w", err)
 	}
+
+	if svc.cache != nil {
+		err = svc.cache.Add(agent)
+		if err != nil {
+			return nil, fmt.Errorf("agentSvc.Get: could not add agent to cache: %w", err)
+		}
+	}
 	return agent, nil
 }
 
 func (svc *AgentService) GetAll() ([]*entities.Agent, error) {
 	if svc.cache != nil {
-		agents, err := svc.storage.GetAll()
+		agents, err := svc.cache.GetAll()
 		if err != nil {
 			return nil, fmt.Errorf("agentSvc.GetAll: could not get agents from cache: %w", err)
 		}
@@ -69,6 +76,14 @@ func (svc *AgentService) GetAll() ([]*entities.Agent, error) {
 	agents, err := svc.storage.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("agentSvc.GetAll: could not get agents from storage: %w", err)
+	}
+	for _, agent := range agents {
+		if svc.cache != nil {
+			err = svc.cache.Add(agent)
+			if err != nil {
+				return nil, fmt.Errorf("agentSvc.GetAll: could not add agent to cache: %w", err)
+			}
+		}
 	}
 	return agents, nil
 }

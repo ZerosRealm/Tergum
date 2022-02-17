@@ -36,7 +36,7 @@ func NewSettingService(cache *SettingCache, storage *SettingStorage) *SettingSer
 
 func (svc *SettingService) Get(id []byte) (*entities.Setting, error) {
 	if svc.cache != nil {
-		setting, err := svc.storage.Get(id)
+		setting, err := svc.cache.Get(id)
 		if err != nil {
 			return nil, fmt.Errorf("settingSvc.Get: could not get setting from cache: %w", err)
 		}
@@ -55,7 +55,7 @@ func (svc *SettingService) Get(id []byte) (*entities.Setting, error) {
 
 func (svc *SettingService) GetAll() ([]*entities.Setting, error) {
 	if svc.cache != nil {
-		settings, err := svc.storage.GetAll()
+		settings, err := svc.cache.GetAll()
 		if err != nil {
 			return nil, fmt.Errorf("settingSvc.GetAll: could not get settings from cache: %w", err)
 		}

@@ -12,13 +12,14 @@ import (
 // Config for storing settings.
 type Config struct {
 	Listen struct {
-		IP   string
-		Port int
+		IP   string `default:"127.0.0.1"`
+		Port int    `default:"666"`
 	}
-	PSK    string
-	Restic string
-	Server string
-	Log    log.Config
+	PSK          string
+	Registration string
+	Restic       string
+	Server       string
+	Log          log.Config
 }
 
 // Load config.
@@ -33,6 +34,7 @@ func Load() (*Config, error) {
 	port := os.Getenv("TERGUM_PORT")
 	server := os.Getenv("TERGUM_SERVER")
 	restic := os.Getenv("TERGUM_RESTIC")
+	regToken := os.Getenv("TERGUM_REGISTRATION")
 
 	if ip != "" {
 		conf.Listen.IP = ip
@@ -52,6 +54,9 @@ func Load() (*Config, error) {
 	}
 	if restic != "" {
 		conf.Restic = restic
+	}
+	if regToken != "" {
+		conf.Registration = regToken
 	}
 
 	if conf.Listen.IP == "" {

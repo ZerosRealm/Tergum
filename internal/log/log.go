@@ -151,10 +151,10 @@ func (log *Logger) SetLevel(level string) bool {
 
 func (log *Logger) Panic(msg ...interface{}) {
 	if log.fields != nil && len(log.fields) != 0 {
-		log.zap.With(log.fields...).Panic(msg...)
+		log.zap.With(log.fields...).Panic(fmt.Sprintln(msg...))
 		return
 	}
-	log.zap.Panic(msg...)
+	log.zap.Panic(fmt.Sprintln(msg...))
 }
 
 func (log *Logger) Fatal(msg ...interface{}) {
@@ -162,33 +162,33 @@ func (log *Logger) Fatal(msg ...interface{}) {
 		log.zap.With(log.fields...).Fatal()
 		return
 	}
-	log.zap.Fatal(msg...)
+	log.zap.Fatal(fmt.Sprintln(msg...))
 }
 
 func (log *Logger) Debug(msg ...interface{}) {
-	log.zap.With(log.fields...).Debug(msg...)
+	log.zap.With(log.fields...).Debug(fmt.Sprintln(msg...))
 }
 
 func (log *Logger) Info(msg ...interface{}) {
 	if log.fields != nil && len(log.fields) != 0 {
-		log.zap.With(log.fields...).Info(msg...)
+		log.zap.With(log.fields...).Info(fmt.Sprintln(msg...))
 		return
 	}
-	log.zap.Info(msg...)
+	log.zap.Info(fmt.Sprintln(msg...))
 }
 
 func (log *Logger) Warn(msg ...interface{}) {
 	if log.fields != nil && len(log.fields) != 0 {
-		log.zap.With(log.fields...).Warn(msg...)
+		log.zap.With(log.fields...).Warn(fmt.Sprintln(msg...))
 		return
 	}
-	log.zap.Warn(msg...)
+	log.zap.Warn(fmt.Sprintln(msg...))
 }
 
 func (log *Logger) Error(msg ...interface{}) {
 	if log.fields != nil && len(log.fields) != 0 {
-		log.zap.With(log.fields...).Error(msg...)
+		log.zap.With(log.fields...).Error(fmt.Sprintln(msg...))
 		return
 	}
-	log.zap.Error(msg...)
+	log.zap.Error(fmt.Sprintln(msg...))
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
@@ -219,6 +220,72 @@ func handleConnection(c net.Conn) {
 	}
 }
 
+func registerAgent() error {
+	if conf.Registration == "" {
+		logger.WithFields("function", "registerAgent").Debug("No registration token, skipping.")
+		return nil
+	}
+
+	logger.WithFields("function", "registerAgent").Debug("Registering agent")
+
+	type registrationData struct {
+		Hostname string `json:"hostname"`
+		Port     int    `json:"port"`
+		Token    string `json:"token"`
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("registerAgent(): error getting hostname: %w", err)
+	}
+
+	msg, err := json.Marshal(registrationData{
+		Hostname: hostname,
+		Port:     conf.Listen.Port,
+		Token:    conf.Registration,
+	})
+	if err != nil {
+		return fmt.Errorf("registerAgent(): error marshalling registration data: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", conf.Server+"/api/register", bytes.NewReader(msg))
+	if err != nil {
+		return fmt.Errorf("registerAgent(): error creating request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("registerAgent(): error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			logger.WithFields("function", "registerAgent").Error("non-200 status:", resp.Status, "body read error:", err)
+			return nil
+		}
+		logger.WithFields("function", "registerAgent").Info("non-200 status:", resp.Status, "body:", string(body))
+		return fmt.Errorf("registerAgent(): non-200 status: %s", resp.Status)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("registerAgent(): error reading response body: %w", err)
+	}
+
+	var agent *entities.Agent
+	err = json.Unmarshal(body, &agent)
+	if err != nil {
+		return fmt.Errorf("registerAgent(): error unmarshalling response body: %w", err)
+	}
+
+	conf.PSK = agent.PSK
+
+	logger.WithFields("function", "registerAgent").Debug("Agent registered:", agent)
+
+	return nil
+}
+
 func main() {
 	config, err := config.Load()
 	if err != nil {
@@ -226,24 +293,34 @@ func main() {
 	}
 	conf = config
 
-	log, err := log.New(&conf.Log, nil)
+	log, err := log.New(&conf.Log)
 	if err != nil {
-		panic(err)
+		logger.Error("error creating logger:", err)
+		return
 	}
 	logger = log
 
 	logger.Info("Starting agent")
 
-	if conf.PSK == "" {
-		logger.Fatal("no PSK defined - exiting")
+	if conf.PSK == "" && conf.Registration == "" {
+		logger.Info("no PSK defined - exiting")
+		return
 	}
 
 	if conf.Restic == "" {
-		logger.Fatal("no path to restic defined - exiting")
+		logger.Info("no path to restic defined - exiting")
+		return
 	}
 
 	if conf.Server == "" {
-		logger.Fatal("no server defined - exiting")
+		logger.Info("no server defined - exiting")
+		return
+	}
+
+	err = registerAgent()
+	if err != nil {
+		logger.Error("error registering agent:", err)
+		return
 	}
 
 	listenStr := fmt.Sprintf("%s:%d", conf.Listen.IP, conf.Listen.Port)

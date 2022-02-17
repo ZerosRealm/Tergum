@@ -27,6 +27,29 @@ func (api *API) GetSettings() http.HandlerFunc {
 	}
 }
 
+func (api *API) GetSetting() http.HandlerFunc {
+	type response struct {
+		*entities.Setting
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		settingKey := vars["id"]
+
+		setting, err := api.services.SettingSvc.Get([]byte(settingKey))
+		if err != nil {
+			api.error(w, r, "Could not get setting.", err, http.StatusInternalServerError)
+			return
+		}
+
+		if setting == nil {
+			api.error(w, r, "No setting found with that ID.", fmt.Errorf("no setting with that ID"), http.StatusNotFound)
+			return
+		}
+
+		api.respond(w, r, &response{setting}, http.StatusOK)
+	}
+}
+
 func (api *API) CreateSetting() http.HandlerFunc {
 	type request struct {
 		*entities.Setting

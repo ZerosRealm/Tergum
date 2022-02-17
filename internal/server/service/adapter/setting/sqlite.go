@@ -1,8 +1,11 @@
 package setting
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
 	"zerosrealm.xyz/tergum/internal/entities"
@@ -33,6 +36,14 @@ func NewSQLiteStorage(dataSource string) (*sqliteStorage, error) {
 	return &sqliteStorage{db: db}, nil
 }
 
+func generatePSK(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
 func initDB(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS settings (
@@ -42,6 +53,21 @@ func initDB(db *sql.DB) error {
 	`)
 	if err != nil {
 		return err
+	}
+
+	psk, err := generatePSK(64)
+	if err != nil {
+		return fmt.Errorf("setting.initDB: failed to generate PSK: %v", err)
+	}
+
+	_, err = db.Exec("INSERT OR IGNORE INTO settings(key, value) VALUES(?, ?);", "registration-enabled", "false")
+	if err != nil {
+		return fmt.Errorf("setting.initDB: failed to create default: %w", err)
+	}
+
+	_, err = db.Exec("INSERT OR IGNORE INTO settings(key, value) VALUES(?, ?);", "registration-token", fmt.Sprintf(`"%s"`, psk))
+	if err != nil {
+		return fmt.Errorf("setting.initDB: failed to create default: %w", err)
 	}
 
 	return nil
@@ -65,7 +91,7 @@ func (s *sqliteStorage) Get(id []byte) (*entities.Setting, error) {
 	}
 
 	var value string
-	err := s.db.QueryRow(`SELECT key, value settings WHERE key = ?`, string(id)).Scan(
+	err := s.db.QueryRow(`SELECT key, value FROM settings WHERE key = ?`, string(id)).Scan(
 		&setting.Key,
 		&value,
 	)
