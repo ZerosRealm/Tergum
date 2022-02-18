@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 func (api *API) GetSettings() http.HandlerFunc {
 	type response struct {
-		Settings []*entities.Setting `json:"settings"`
+		Settings []*entity.Setting `json:"settings"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		settings, err := api.services.SettingSvc.GetAll()
@@ -20,7 +20,7 @@ func (api *API) GetSettings() http.HandlerFunc {
 		}
 
 		if settings == nil {
-			settings = make([]*entities.Setting, 0)
+			settings = make([]*entity.Setting, 0)
 		}
 
 		api.respond(w, r, &response{Settings: settings}, http.StatusOK)
@@ -29,7 +29,7 @@ func (api *API) GetSettings() http.HandlerFunc {
 
 func (api *API) GetSetting() http.HandlerFunc {
 	type response struct {
-		*entities.Setting
+		*entity.Setting
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -52,10 +52,10 @@ func (api *API) GetSetting() http.HandlerFunc {
 
 func (api *API) CreateSetting() http.HandlerFunc {
 	type request struct {
-		*entities.Setting
+		*entity.Setting
 	}
 	type response struct {
-		*entities.Setting
+		*entity.Setting
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -65,7 +65,7 @@ func (api *API) CreateSetting() http.HandlerFunc {
 			return
 		}
 
-		setting := &entities.Setting{
+		setting := &entity.Setting{
 			Key:   req.Key,
 			Value: req.Value,
 		}
@@ -83,10 +83,10 @@ func (api *API) CreateSetting() http.HandlerFunc {
 
 func (api *API) UpdateSetting() http.HandlerFunc {
 	type request struct {
-		*entities.Setting
+		*entity.Setting
 	}
 	type response struct {
-		*entities.Setting
+		*entity.Setting
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -113,7 +113,7 @@ func (api *API) UpdateSetting() http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create an setting with the given ID if it does not exist
 		// if foundSetting == nil {
-		// 	foundSetting = &entities.Setting{
+		// 	foundSetting = &entity.Setting{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated

@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"strconv"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type BackupCache interface {
-	Get(id []byte) (*entities.Backup, error)
-	GetAll() ([]*entities.Backup, error)
+	Get(id []byte) (*entity.Backup, error)
+	GetAll() ([]*entity.Backup, error)
 
-	Add(backup *entities.Backup) error
+	Add(backup *entity.Backup) error
 	Invalidate(id []byte) error
 }
 
 type BackupStorage interface {
-	Get(id []byte) (*entities.Backup, error)
-	GetAll() ([]*entities.Backup, error)
-	Create(backup *entities.Backup) (*entities.Backup, error)
-	Update(backup *entities.Backup) (*entities.Backup, error)
+	Get(id []byte) (*entity.Backup, error)
+	GetAll() ([]*entity.Backup, error)
+	Create(backup *entity.Backup) (*entity.Backup, error)
+	Update(backup *entity.Backup) (*entity.Backup, error)
 	Delete(id []byte) error
 }
 
@@ -35,7 +35,7 @@ func NewBackupService(cache *BackupCache, storage *BackupStorage) *BackupService
 	}
 }
 
-func (svc *BackupService) Get(id []byte) (*entities.Backup, error) {
+func (svc *BackupService) Get(id []byte) (*entity.Backup, error) {
 	if svc.cache != nil {
 		backup, err := svc.cache.Get(id)
 		if err != nil {
@@ -54,7 +54,7 @@ func (svc *BackupService) Get(id []byte) (*entities.Backup, error) {
 	return backup, nil
 }
 
-func (svc *BackupService) GetAll() ([]*entities.Backup, error) {
+func (svc *BackupService) GetAll() ([]*entity.Backup, error) {
 	if svc.cache != nil {
 		backups, err := svc.cache.GetAll()
 		if err != nil {
@@ -73,7 +73,7 @@ func (svc *BackupService) GetAll() ([]*entities.Backup, error) {
 	return backups, nil
 }
 
-func (svc *BackupService) Create(backup *entities.Backup) (*entities.Backup, error) {
+func (svc *BackupService) Create(backup *entity.Backup) (*entity.Backup, error) {
 	backup, err := svc.storage.Create(backup)
 	if err != nil {
 		return nil, fmt.Errorf("backupSvc.Create: could not create backup: %w", err)
@@ -89,7 +89,7 @@ func (svc *BackupService) Create(backup *entities.Backup) (*entities.Backup, err
 	return backup, nil
 }
 
-func (svc *BackupService) Update(backup *entities.Backup) (*entities.Backup, error) {
+func (svc *BackupService) Update(backup *entity.Backup) (*entity.Backup, error) {
 	backup, err := svc.storage.Update(backup)
 	if err != nil {
 		return nil, fmt.Errorf("backupSvc.Update: could not update backup: %w", err)

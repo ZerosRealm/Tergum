@@ -3,22 +3,22 @@ package service
 import (
 	"fmt"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type SettingCache interface {
-	Get(id []byte) (*entities.Setting, error)
-	GetAll() ([]*entities.Setting, error)
+	Get(id []byte) (*entity.Setting, error)
+	GetAll() ([]*entity.Setting, error)
 
-	Add(setting *entities.Setting) error
+	Add(setting *entity.Setting) error
 	Invalidate(id []byte) error
 }
 
 type SettingStorage interface {
-	Get(id []byte) (*entities.Setting, error)
-	GetAll() ([]*entities.Setting, error)
-	Create(setting *entities.Setting) (*entities.Setting, error)
-	Update(setting *entities.Setting) (*entities.Setting, error)
+	Get(id []byte) (*entity.Setting, error)
+	GetAll() ([]*entity.Setting, error)
+	Create(setting *entity.Setting) (*entity.Setting, error)
+	Update(setting *entity.Setting) (*entity.Setting, error)
 	Delete(id []byte) error
 }
 
@@ -34,7 +34,7 @@ func NewSettingService(cache *SettingCache, storage *SettingStorage) *SettingSer
 	}
 }
 
-func (svc *SettingService) Get(id []byte) (*entities.Setting, error) {
+func (svc *SettingService) Get(id []byte) (*entity.Setting, error) {
 	if svc.cache != nil {
 		setting, err := svc.cache.Get(id)
 		if err != nil {
@@ -53,7 +53,7 @@ func (svc *SettingService) Get(id []byte) (*entities.Setting, error) {
 	return setting, nil
 }
 
-func (svc *SettingService) GetAll() ([]*entities.Setting, error) {
+func (svc *SettingService) GetAll() ([]*entity.Setting, error) {
 	if svc.cache != nil {
 		settings, err := svc.cache.GetAll()
 		if err != nil {
@@ -72,7 +72,7 @@ func (svc *SettingService) GetAll() ([]*entities.Setting, error) {
 	return settings, nil
 }
 
-func (svc *SettingService) Create(setting *entities.Setting) (*entities.Setting, error) {
+func (svc *SettingService) Create(setting *entity.Setting) (*entity.Setting, error) {
 	setting, err := svc.storage.Create(setting)
 	if err != nil {
 		return nil, fmt.Errorf("settingSvc.Create: could not create setting: %w", err)
@@ -88,7 +88,7 @@ func (svc *SettingService) Create(setting *entities.Setting) (*entities.Setting,
 	return setting, nil
 }
 
-func (svc *SettingService) Update(setting *entities.Setting) (*entities.Setting, error) {
+func (svc *SettingService) Update(setting *entity.Setting) (*entity.Setting, error) {
 	setting, err := svc.storage.Update(setting)
 	if err != nil {
 		return nil, fmt.Errorf("settingSvc.Update: could not update setting: %w", err)

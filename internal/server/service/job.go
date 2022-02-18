@@ -3,22 +3,22 @@ package service
 import (
 	"fmt"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type JobCache interface {
-	Get(id []byte) (*entities.Job, error)
-	GetAll() ([]*entities.Job, error)
+	Get(id []byte) (*entity.Job, error)
+	GetAll() ([]*entity.Job, error)
 
-	Add(job *entities.Job) error
+	Add(job *entity.Job) error
 	Invalidate(id []byte) error
 }
 
 type JobStorage interface {
-	Get(id []byte) (*entities.Job, error)
-	GetAll() ([]*entities.Job, error)
-	Create(job *entities.Job) (*entities.Job, error)
-	Update(job *entities.Job) (*entities.Job, error)
+	Get(id []byte) (*entity.Job, error)
+	GetAll() ([]*entity.Job, error)
+	Create(job *entity.Job) (*entity.Job, error)
+	Update(job *entity.Job) (*entity.Job, error)
 	Delete(id []byte) error
 }
 
@@ -34,7 +34,7 @@ func NewJobService(cache *JobCache, storage *JobStorage) *JobService {
 	}
 }
 
-func (svc *JobService) Get(id []byte) (*entities.Job, error) {
+func (svc *JobService) Get(id []byte) (*entity.Job, error) {
 	if svc.cache != nil {
 		job, err := svc.cache.Get(id)
 		if err != nil {
@@ -53,7 +53,7 @@ func (svc *JobService) Get(id []byte) (*entities.Job, error) {
 	return job, nil
 }
 
-func (svc *JobService) GetAll() ([]*entities.Job, error) {
+func (svc *JobService) GetAll() ([]*entity.Job, error) {
 	if svc.cache != nil {
 		jobs, err := svc.cache.GetAll()
 		if err != nil {
@@ -67,12 +67,12 @@ func (svc *JobService) GetAll() ([]*entities.Job, error) {
 
 	jobs, err := svc.storage.GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("jobSvc.GetAll: could not get jobs from cache: %w", err)
+		return nil, fmt.Errorf("jobSvc.GetAll: could not get jobs from storage: %w", err)
 	}
 	return jobs, nil
 }
 
-func (svc *JobService) Create(job *entities.Job) (*entities.Job, error) {
+func (svc *JobService) Create(job *entity.Job) (*entity.Job, error) {
 	job, err := svc.storage.Create(job)
 	if err != nil {
 		return nil, fmt.Errorf("jobSvc.Create: could not create job: %w", err)
@@ -88,7 +88,7 @@ func (svc *JobService) Create(job *entities.Job) (*entities.Job, error) {
 	return job, nil
 }
 
-func (svc *JobService) Update(job *entities.Job) (*entities.Job, error) {
+func (svc *JobService) Update(job *entity.Job) (*entity.Job, error) {
 	job, err := svc.storage.Update(job)
 	if err != nil {
 		return nil, fmt.Errorf("jobSvc.Update: could not update job: %w", err)

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type sqliteStorage struct {
@@ -72,14 +72,14 @@ func (s *sqliteStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *sqliteStorage) Get(id []byte) (*entities.BackupSubscribers, error) {
+func (s *sqliteStorage) Get(id []byte) (*entity.BackupSubscribers, error) {
 	var exists bool
 	intID, err := strconv.Atoi(string(id))
 	if err != nil {
 		return nil, err
 	}
 
-	backupSubscribers := &entities.BackupSubscribers{
+	backupSubscribers := &entity.BackupSubscribers{
 		BackupID: intID,
 		AgentIDs: make([]int, 0),
 	}
@@ -117,9 +117,9 @@ func (s *sqliteStorage) Get(id []byte) (*entities.BackupSubscribers, error) {
 }
 
 // TODO: Implement pagination.
-func (s *sqliteStorage) GetAll() ([]*entities.BackupSubscribers, error) {
-	allBackupSubscribers := make([]*entities.BackupSubscribers, 0)
-	backupIDs := make(map[int]*entities.BackupSubscribers)
+func (s *sqliteStorage) GetAll() ([]*entity.BackupSubscribers, error) {
+	allBackupSubscribers := make([]*entity.BackupSubscribers, 0)
+	backupIDs := make(map[int]*entity.BackupSubscribers)
 
 	rows, err := s.db.Query(`SELECT backupID, agentID FROM backupSubscribers`)
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *sqliteStorage) GetAll() ([]*entities.BackupSubscribers, error) {
 		}
 
 		// Otherwise, create a new backupSubscribers.
-		backupSubscribers := &entities.BackupSubscribers{
+		backupSubscribers := &entity.BackupSubscribers{
 			BackupID: backupID,
 			AgentIDs: []int{agentID},
 		}
@@ -166,7 +166,7 @@ func contains(slice []int, item int) bool {
 	return false
 }
 
-func (s *sqliteStorage) Create(backupSubscribers *entities.BackupSubscribers) (*entities.BackupSubscribers, error) {
+func (s *sqliteStorage) Create(backupSubscribers *entity.BackupSubscribers) (*entity.BackupSubscribers, error) {
 	for _, agentID := range backupSubscribers.AgentIDs {
 		_, err := s.db.Exec(`INSERT INTO backupSubscribers (backupID, agentID) VALUES (?, ?)`,
 			backupSubscribers.BackupID,
@@ -180,7 +180,7 @@ func (s *sqliteStorage) Create(backupSubscribers *entities.BackupSubscribers) (*
 	return backupSubscribers, nil
 }
 
-func (s *sqliteStorage) Update(backupSubscribers *entities.BackupSubscribers) (*entities.BackupSubscribers, error) {
+func (s *sqliteStorage) Update(backupSubscribers *entity.BackupSubscribers) (*entity.BackupSubscribers, error) {
 	currentSubscribers, err := s.Get([]byte(strconv.Itoa(backupSubscribers.BackupID)))
 	if err != nil {
 		return nil, err

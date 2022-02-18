@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"strconv"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type ForgetCache interface {
-	Get(id []byte) (*entities.Forget, error)
-	GetAll() ([]*entities.Forget, error)
+	Get(id []byte) (*entity.Forget, error)
+	GetAll() ([]*entity.Forget, error)
 
-	Add(forget *entities.Forget) error
+	Add(forget *entity.Forget) error
 	Invalidate(id []byte) error
 }
 
 type ForgetStorage interface {
-	Get(id []byte) (*entities.Forget, error)
-	GetAll() ([]*entities.Forget, error)
-	Create(forget *entities.Forget) (*entities.Forget, error)
-	Update(forget *entities.Forget) (*entities.Forget, error)
+	Get(id []byte) (*entity.Forget, error)
+	GetAll() ([]*entity.Forget, error)
+	Create(forget *entity.Forget) (*entity.Forget, error)
+	Update(forget *entity.Forget) (*entity.Forget, error)
 	Delete(id []byte) error
 }
 
@@ -35,7 +35,7 @@ func NewForgetService(cache *ForgetCache, storage *ForgetStorage) *ForgetService
 	}
 }
 
-func (svc *ForgetService) Get(id []byte) (*entities.Forget, error) {
+func (svc *ForgetService) Get(id []byte) (*entity.Forget, error) {
 	if svc.cache != nil {
 		forget, err := svc.cache.Get(id)
 		if err != nil {
@@ -54,7 +54,7 @@ func (svc *ForgetService) Get(id []byte) (*entities.Forget, error) {
 	return forget, nil
 }
 
-func (svc *ForgetService) GetAll() ([]*entities.Forget, error) {
+func (svc *ForgetService) GetAll() ([]*entity.Forget, error) {
 	if svc.cache != nil {
 		forgets, err := svc.cache.GetAll()
 		if err != nil {
@@ -73,7 +73,7 @@ func (svc *ForgetService) GetAll() ([]*entities.Forget, error) {
 	return forgets, nil
 }
 
-func (svc *ForgetService) Create(forget *entities.Forget) (*entities.Forget, error) {
+func (svc *ForgetService) Create(forget *entity.Forget) (*entity.Forget, error) {
 	forget, err := svc.storage.Create(forget)
 	if err != nil {
 		return nil, fmt.Errorf("forgetSvc.Create: could not create forget: %w", err)
@@ -89,7 +89,7 @@ func (svc *ForgetService) Create(forget *entities.Forget) (*entities.Forget, err
 	return forget, nil
 }
 
-func (svc *ForgetService) Update(forget *entities.Forget) (*entities.Forget, error) {
+func (svc *ForgetService) Update(forget *entity.Forget) (*entity.Forget, error) {
 	forget, err := svc.storage.Update(forget)
 	if err != nil {
 		return nil, fmt.Errorf("forgetSvc.Update: could not update forget: %w", err)

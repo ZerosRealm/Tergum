@@ -150,7 +150,7 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 }
 
 // Restore snapshot to target.
-func (r *Restic) Restore(repo, password, snapshot, target, include, exclude string, env ...string) ([]byte, error) {
+func (r *Restic) Restore(repo, password, snapshot, target string, include, exclude []string, env ...string) ([]byte, error) {
 	args := []string{
 		"restore",
 		snapshot,
@@ -160,14 +160,18 @@ func (r *Restic) Restore(repo, password, snapshot, target, include, exclude stri
 		repo,
 	}
 
-	if include != "" {
-		args = append(args, "--include")
-		args = append(args, include)
+	if include != nil && len(include) != 0 {
+		for _, val := range include {
+			args = append(args, "--include")
+			args = append(args, val)
+		}
 	}
 
-	if exclude != "" {
-		args = append(args, "--exclude")
-		args = append(args, exclude)
+	if exclude != nil && len(exclude) != 0 {
+		for _, val := range exclude {
+			args = append(args, "--exclude")
+			args = append(args, val)
+		}
 	}
 
 	cmd := exec.Command(r.exe, args...)
@@ -245,34 +249,36 @@ func (r *Restic) Forget(repo, password, snapshot string, options *ForgetOptions,
 	args = append(args, "--repo")
 	args = append(args, repo)
 
-	if options.LastX > 0 {
-		args = append(args, "--keep-last")
-		args = append(args, strconv.Itoa(options.LastX))
-	}
+	if options != nil {
+		if options.LastX > 0 {
+			args = append(args, "--keep-last")
+			args = append(args, strconv.Itoa(options.LastX))
+		}
 
-	if options.Hourly > 0 {
-		args = append(args, "--keep-hourly")
-		args = append(args, strconv.Itoa(options.Hourly))
-	}
+		if options.Hourly > 0 {
+			args = append(args, "--keep-hourly")
+			args = append(args, strconv.Itoa(options.Hourly))
+		}
 
-	if options.Daily > 0 {
-		args = append(args, "--keep-daily")
-		args = append(args, strconv.Itoa(options.Daily))
-	}
+		if options.Daily > 0 {
+			args = append(args, "--keep-daily")
+			args = append(args, strconv.Itoa(options.Daily))
+		}
 
-	if options.Weekly > 0 {
-		args = append(args, "--keep-weekly")
-		args = append(args, strconv.Itoa(options.Weekly))
-	}
+		if options.Weekly > 0 {
+			args = append(args, "--keep-weekly")
+			args = append(args, strconv.Itoa(options.Weekly))
+		}
 
-	if options.Monthly > 0 {
-		args = append(args, "--keep-monthly")
-		args = append(args, strconv.Itoa(options.Monthly))
-	}
+		if options.Monthly > 0 {
+			args = append(args, "--keep-monthly")
+			args = append(args, strconv.Itoa(options.Monthly))
+		}
 
-	if options.Yearly > 0 {
-		args = append(args, "--keep-yearly")
-		args = append(args, strconv.Itoa(options.Yearly))
+		if options.Yearly > 0 {
+			args = append(args, "--keep-yearly")
+			args = append(args, strconv.Itoa(options.Yearly))
+		}
 	}
 
 	cmd := exec.Command(r.exe, args...)

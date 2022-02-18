@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type sqliteStorage struct {
@@ -59,8 +59,8 @@ func (s *sqliteStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *sqliteStorage) Get(id []byte) (*entities.Repo, error) {
-	var repo entities.Repo
+func (s *sqliteStorage) Get(id []byte) (*entity.Repo, error) {
+	var repo entity.Repo
 
 	var exists bool
 	intID, err := strconv.Atoi(string(id))
@@ -94,8 +94,8 @@ func (s *sqliteStorage) Get(id []byte) (*entities.Repo, error) {
 }
 
 // TODO: Implement pagination.
-func (s *sqliteStorage) GetAll() ([]*entities.Repo, error) {
-	var repos []*entities.Repo
+func (s *sqliteStorage) GetAll() ([]*entity.Repo, error) {
+	var repos []*entity.Repo
 
 	rows, err := s.db.Query(`SELECT id, name, repo, password, settings FROM repos`)
 	if err != nil {
@@ -104,7 +104,7 @@ func (s *sqliteStorage) GetAll() ([]*entities.Repo, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var repo entities.Repo
+		var repo entity.Repo
 
 		var settings string
 		err := rows.Scan(
@@ -125,7 +125,7 @@ func (s *sqliteStorage) GetAll() ([]*entities.Repo, error) {
 	return repos, nil
 }
 
-func (s *sqliteStorage) Create(repo *entities.Repo) (*entities.Repo, error) {
+func (s *sqliteStorage) Create(repo *entity.Repo) (*entity.Repo, error) {
 	result, err := s.db.Exec(`INSERT INTO repos (name, repo, password, settings) VALUES (?, ?, ?, ?)`,
 		repo.Name,
 		repo.Repo,
@@ -146,7 +146,7 @@ func (s *sqliteStorage) Create(repo *entities.Repo) (*entities.Repo, error) {
 	return repo, nil
 }
 
-func (s *sqliteStorage) Update(repo *entities.Repo) (*entities.Repo, error) {
+func (s *sqliteStorage) Update(repo *entity.Repo) (*entity.Repo, error) {
 	_, err := s.db.Exec(`UPDATE repos SET name = ?, repo = ?, password = ?, settings = ? WHERE id = ?`,
 		repo.Name,
 		repo.Repo,

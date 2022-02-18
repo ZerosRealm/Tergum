@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"strconv"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type BackupSubscriberCache interface {
-	Get(backupID []byte) (*entities.BackupSubscribers, error)
-	GetAll() ([]*entities.BackupSubscribers, error)
+	Get(backupID []byte) (*entity.BackupSubscribers, error)
+	GetAll() ([]*entity.BackupSubscribers, error)
 
-	Add(backupSubscriber *entities.BackupSubscribers) error
+	Add(backupSubscriber *entity.BackupSubscribers) error
 	Invalidate(backupID []byte) error
 }
 
 type BackupSubscriberStorage interface {
-	Get(backupID []byte) (*entities.BackupSubscribers, error)
-	GetAll() ([]*entities.BackupSubscribers, error)
-	Create(backupSubscriber *entities.BackupSubscribers) (*entities.BackupSubscribers, error)
-	Update(backupSubscriber *entities.BackupSubscribers) (*entities.BackupSubscribers, error)
+	Get(backupID []byte) (*entity.BackupSubscribers, error)
+	GetAll() ([]*entity.BackupSubscribers, error)
+	Create(backupSubscriber *entity.BackupSubscribers) (*entity.BackupSubscribers, error)
+	Update(backupSubscriber *entity.BackupSubscribers) (*entity.BackupSubscribers, error)
 	Delete(backupID []byte) error
 }
 
@@ -35,7 +35,7 @@ func NewBackupSubscriberService(cache *BackupSubscriberCache, storage *BackupSub
 	}
 }
 
-func (svc *BackupSubscriberService) Get(backupID []byte) (*entities.BackupSubscribers, error) {
+func (svc *BackupSubscriberService) Get(backupID []byte) (*entity.BackupSubscribers, error) {
 	if svc.cache != nil {
 		backupSubscribers, err := svc.cache.Get(backupID)
 		if err != nil {
@@ -54,7 +54,7 @@ func (svc *BackupSubscriberService) Get(backupID []byte) (*entities.BackupSubscr
 	return backupSubscribers, nil
 }
 
-func (svc *BackupSubscriberService) GetAll() ([]*entities.BackupSubscribers, error) {
+func (svc *BackupSubscriberService) GetAll() ([]*entity.BackupSubscribers, error) {
 	if svc.cache != nil {
 		backupSubscribers, err := svc.cache.GetAll()
 		if err != nil {
@@ -73,7 +73,7 @@ func (svc *BackupSubscriberService) GetAll() ([]*entities.BackupSubscribers, err
 	return backupSubscribers, nil
 }
 
-func (svc *BackupSubscriberService) Create(backupSubscriber *entities.BackupSubscribers) (*entities.BackupSubscribers, error) {
+func (svc *BackupSubscriberService) Create(backupSubscriber *entity.BackupSubscribers) (*entity.BackupSubscribers, error) {
 	backupSubscriber, err := svc.storage.Create(backupSubscriber)
 	if err != nil {
 		return nil, fmt.Errorf("backupSubscriberSvc.Create: could not create backupSubscriber: %w", err)
@@ -89,7 +89,7 @@ func (svc *BackupSubscriberService) Create(backupSubscriber *entities.BackupSubs
 	return backupSubscriber, nil
 }
 
-func (svc *BackupSubscriberService) Update(backupSubscriber *entities.BackupSubscribers) (*entities.BackupSubscribers, error) {
+func (svc *BackupSubscriberService) Update(backupSubscriber *entity.BackupSubscribers) (*entity.BackupSubscribers, error) {
 	backup, err := svc.storage.Update(backupSubscriber)
 	if err != nil {
 		return nil, fmt.Errorf("backupSubscriberSvc.Update: could not update backupSubscriber: %w", err)

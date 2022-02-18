@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 /*
@@ -13,17 +13,17 @@ import (
 
 type MemoryCache struct {
 	mutex             sync.RWMutex
-	backupSubscribers map[string]*entities.BackupSubscribers
+	backupSubscribers map[string]*entity.BackupSubscribers
 }
 
 func NewMemoryCache() *MemoryCache {
 	return &MemoryCache{
 		mutex:             sync.RWMutex{},
-		backupSubscribers: make(map[string]*entities.BackupSubscribers),
+		backupSubscribers: make(map[string]*entity.BackupSubscribers),
 	}
 }
 
-func (s *MemoryCache) Get(id []byte) (*entities.BackupSubscribers, error) {
+func (s *MemoryCache) Get(id []byte) (*entity.BackupSubscribers, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -36,11 +36,11 @@ func (s *MemoryCache) Get(id []byte) (*entities.BackupSubscribers, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryCache) GetAll() ([]*entities.BackupSubscribers, error) {
+func (s *MemoryCache) GetAll() ([]*entity.BackupSubscribers, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	backupSubscribers := make([]*entities.BackupSubscribers, 0, len(s.backupSubscribers))
+	backupSubscribers := make([]*entity.BackupSubscribers, 0, len(s.backupSubscribers))
 	for _, backup := range s.backupSubscribers {
 		backupSubscribers = append(backupSubscribers, backup)
 	}
@@ -48,7 +48,7 @@ func (s *MemoryCache) GetAll() ([]*entities.BackupSubscribers, error) {
 	return backupSubscribers, nil
 }
 
-func (s *MemoryCache) Add(backupSubscribers *entities.BackupSubscribers) error {
+func (s *MemoryCache) Add(backupSubscribers *entity.BackupSubscribers) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -70,17 +70,17 @@ func (s *MemoryCache) Invalidate(id []byte) error {
 
 type MemoryStorage struct {
 	mutex             sync.RWMutex
-	backupSubscribers map[string]*entities.BackupSubscribers
+	backupSubscribers map[string]*entity.BackupSubscribers
 }
 
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
 		mutex:             sync.RWMutex{},
-		backupSubscribers: make(map[string]*entities.BackupSubscribers),
+		backupSubscribers: make(map[string]*entity.BackupSubscribers),
 	}
 }
 
-func (s *MemoryStorage) Get(id []byte) (*entities.BackupSubscribers, error) {
+func (s *MemoryStorage) Get(id []byte) (*entity.BackupSubscribers, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -93,11 +93,11 @@ func (s *MemoryStorage) Get(id []byte) (*entities.BackupSubscribers, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryStorage) GetAll() ([]*entities.BackupSubscribers, error) {
+func (s *MemoryStorage) GetAll() ([]*entity.BackupSubscribers, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	backupSubscribers := make([]*entities.BackupSubscribers, 0, len(s.backupSubscribers))
+	backupSubscribers := make([]*entity.BackupSubscribers, 0, len(s.backupSubscribers))
 	for _, backup := range s.backupSubscribers {
 		backupSubscribers = append(backupSubscribers, backup)
 	}
@@ -105,7 +105,7 @@ func (s *MemoryStorage) GetAll() ([]*entities.BackupSubscribers, error) {
 	return backupSubscribers, nil
 }
 
-func (s *MemoryStorage) Create(backupSubscribers *entities.BackupSubscribers) (*entities.BackupSubscribers, error) {
+func (s *MemoryStorage) Create(backupSubscribers *entity.BackupSubscribers) (*entity.BackupSubscribers, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -117,7 +117,7 @@ func (s *MemoryStorage) Create(backupSubscribers *entities.BackupSubscribers) (*
 	return backupSubscribers, nil
 }
 
-func (s *MemoryStorage) Update(backupSubscribers *entities.BackupSubscribers) (*entities.BackupSubscribers, error) {
+func (s *MemoryStorage) Update(backupSubscribers *entity.BackupSubscribers) (*entity.BackupSubscribers, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

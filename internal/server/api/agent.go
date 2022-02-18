@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 func (api *API) GetAgents() http.HandlerFunc {
 	type response struct {
-		Agents []*entities.Agent `json:"agents"`
+		Agents []*entity.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		agents, err := api.services.AgentSvc.GetAll()
@@ -20,7 +20,7 @@ func (api *API) GetAgents() http.HandlerFunc {
 		}
 
 		if agents == nil {
-			agents = make([]*entities.Agent, 0)
+			agents = make([]*entity.Agent, 0)
 		}
 
 		api.respond(w, r, &response{Agents: agents}, http.StatusOK)
@@ -35,7 +35,7 @@ func (api *API) CreateAgent() http.HandlerFunc {
 		Port int    `json:"port"`
 	}
 	type response struct {
-		Agent *entities.Agent `json:"agent"`
+		Agent *entity.Agent `json:"agent"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -45,7 +45,7 @@ func (api *API) CreateAgent() http.HandlerFunc {
 			return
 		}
 
-		agent := &entities.Agent{
+		agent := &entity.Agent{
 			Name: req.Name,
 			PSK:  req.PSK,
 			IP:   req.IP,
@@ -71,7 +71,7 @@ func (api *API) UpdateAgent() http.HandlerFunc {
 		Port int    `json:"port"`
 	}
 	type response struct {
-		Agent *entities.Agent `json:"agent"`
+		Agent *entity.Agent `json:"agent"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -98,7 +98,7 @@ func (api *API) UpdateAgent() http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create an agent with the given ID if it does not exist
 		// if foundAgent == nil {
-		// 	foundAgent = &entities.Agent{
+		// 	foundAgent = &entity.Agent{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated

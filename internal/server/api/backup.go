@@ -7,13 +7,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/robfig/cron/v3"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 	manager "zerosrealm.xyz/tergum/internal/server/manager"
 )
 
 func (api *API) GetBackups() http.HandlerFunc {
 	type response struct {
-		Backups []*entities.Backup `json:"backups"`
+		Backups []*entity.Backup `json:"backups"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -24,7 +24,7 @@ func (api *API) GetBackups() http.HandlerFunc {
 		}
 
 		if backups == nil {
-			backups = make([]*entities.Backup, 0)
+			backups = make([]*entity.Backup, 0)
 		}
 
 		api.respond(w, r, &response{Backups: backups}, 200)
@@ -38,7 +38,7 @@ func (api *API) CreateBackup(man *manager.Manager) http.HandlerFunc {
 		Schedule string `json:"schedule"`
 	}
 	type response struct {
-		Backup *entities.Backup `json:"backup"`
+		Backup *entity.Backup `json:"backup"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -54,7 +54,7 @@ func (api *API) CreateBackup(man *manager.Manager) http.HandlerFunc {
 			return
 		}
 
-		backup := &entities.Backup{
+		backup := &entity.Backup{
 			Target:   req.Target,
 			Source:   req.Source,
 			Schedule: req.Schedule,
@@ -82,7 +82,7 @@ func (api *API) UpdateBackup(man *manager.Manager) http.HandlerFunc {
 		Exclude  []string `json:"exclude"`
 	}
 	type response struct {
-		Backup *entities.Backup `json:"backup"`
+		Backup *entity.Backup `json:"backup"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -109,7 +109,7 @@ func (api *API) UpdateBackup(man *manager.Manager) http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create a backup with the given ID if it does not exist
 		// if backup == nil {
-		// 	backup = &entities.Backup{
+		// 	backup = &entity.Backup{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated
@@ -173,7 +173,7 @@ func (api *API) DeleteBackup() http.HandlerFunc {
 
 func (api *API) GetBackupAgents() http.HandlerFunc {
 	type response struct {
-		Agents []*entities.Agent `json:"agents"`
+		Agents []*entity.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -193,7 +193,7 @@ func (api *API) GetBackupAgents() http.HandlerFunc {
 		// TODO: Use a different service for this.
 		// agents, ok := savedData.BackupSubscribers[backup.ID]
 		// if !ok || agents == nil {
-		// 	api.respond(w, r, response{Agents: make([]*entities.Agent, 0)}, http.StatusOK)
+		// 	api.respond(w, r, response{Agents: make([]*entity.Agent, 0)}, http.StatusOK)
 		// 	return
 		// }
 
@@ -204,11 +204,11 @@ func (api *API) GetBackupAgents() http.HandlerFunc {
 		}
 
 		if subscribers == nil || len(subscribers.AgentIDs) == 0 {
-			api.respond(w, r, response{Agents: make([]*entities.Agent, 0)}, http.StatusOK)
+			api.respond(w, r, response{Agents: make([]*entity.Agent, 0)}, http.StatusOK)
 			return
 		}
 
-		agents := make([]*entities.Agent, 0)
+		agents := make([]*entity.Agent, 0)
 		for _, agentID := range subscribers.AgentIDs {
 			agentID := strconv.Itoa(agentID)
 			agent, err := api.services.AgentSvc.Get([]byte(agentID))
@@ -228,7 +228,7 @@ func (api *API) UpdateBackupAgents() http.HandlerFunc {
 		Agents []int `json:"agents"`
 	}
 	type response struct {
-		Agents []*entities.Agent `json:"agents"`
+		Agents []*entity.Agent `json:"agents"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -257,7 +257,7 @@ func (api *API) UpdateBackupAgents() http.HandlerFunc {
 			agentIDs = append(agentIDs, agent)
 		}
 
-		backupSubscriber := &entities.BackupSubscribers{
+		backupSubscriber := &entity.BackupSubscribers{
 			BackupID: backup.ID,
 			AgentIDs: agentIDs,
 		}
@@ -268,7 +268,7 @@ func (api *API) UpdateBackupAgents() http.HandlerFunc {
 			return
 		}
 
-		agents := make([]*entities.Agent, 0)
+		agents := make([]*entity.Agent, 0)
 		for _, agentID := range backupSubscriber.AgentIDs {
 			agent, err := api.services.AgentSvc.Get([]byte(strconv.Itoa(agentID)))
 			if err != nil {

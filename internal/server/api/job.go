@@ -7,17 +7,17 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 	"zerosrealm.xyz/tergum/internal/restic"
 	manager "zerosrealm.xyz/tergum/internal/server/manager"
 )
 
 func (api *API) GetJobs(man *manager.Manager) http.HandlerFunc {
 	type response struct {
-		Jobs map[string]*entities.Job `json:"jobs"`
+		Jobs map[string]*entity.Job `json:"jobs"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		respJobs := make(map[string]*entities.Job, 0)
+		respJobs := make(map[string]*entity.Job, 0)
 		jobs, err := api.services.JobSvc.GetAll()
 		if err != nil {
 			api.error(w, r, "Could not get jobs.", err, http.StatusInternalServerError)
@@ -69,8 +69,8 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 	}
 
 	type wsResponse struct {
-		Type string        `json:"type"`
-		Job  *entities.Job `json:"job"`
+		Type string      `json:"type"`
+		Job  *entity.Job `json:"job"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("authorization")
@@ -179,7 +179,7 @@ func (api *API) CreateJob(man *manager.Manager) http.HandlerFunc {
 		Backup int `json:"backup"`
 	}
 	type response struct {
-		Jobs []*entities.Job `json:"jobs"`
+		Jobs []*entity.Job `json:"jobs"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -204,7 +204,7 @@ func (api *API) CreateJob(man *manager.Manager) http.HandlerFunc {
 		}
 
 		if jobs == nil {
-			api.respond(w, r, response{Jobs: make([]*entities.Job, 0)}, http.StatusOK)
+			api.respond(w, r, response{Jobs: make([]*entity.Job, 0)}, http.StatusOK)
 			return
 		}
 

@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type sqliteStorage struct {
@@ -68,8 +68,8 @@ func (s *sqliteStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *sqliteStorage) Get(id []byte) (*entities.Forget, error) {
-	var forget entities.Forget
+func (s *sqliteStorage) Get(id []byte) (*entity.Forget, error) {
+	var forget entity.Forget
 
 	var exists bool
 	intID, err := strconv.Atoi(string(id))
@@ -103,8 +103,8 @@ func (s *sqliteStorage) Get(id []byte) (*entities.Forget, error) {
 }
 
 // TODO: Implement pagination.
-func (s *sqliteStorage) GetAll() ([]*entities.Forget, error) {
-	var forgets []*entities.Forget
+func (s *sqliteStorage) GetAll() ([]*entity.Forget, error) {
+	var forgets []*entity.Forget
 
 	rows, err := s.db.Query(`SELECT id, enabled, lastx, hourly, daily, weekly, monthly, yearly FROM forgets`)
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *sqliteStorage) GetAll() ([]*entities.Forget, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var forget entities.Forget
+		var forget entity.Forget
 
 		err := rows.Scan(
 			&forget.ID,
@@ -135,7 +135,7 @@ func (s *sqliteStorage) GetAll() ([]*entities.Forget, error) {
 	return forgets, nil
 }
 
-func (s *sqliteStorage) Create(forget *entities.Forget) (*entities.Forget, error) {
+func (s *sqliteStorage) Create(forget *entity.Forget) (*entity.Forget, error) {
 	result, err := s.db.Exec(`INSERT INTO forgets (enabled, lastx, hourly, daily, weekly, monthly, yearly) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		forget.Enabled,
 		forget.LastX,
@@ -159,7 +159,7 @@ func (s *sqliteStorage) Create(forget *entities.Forget) (*entities.Forget, error
 	return forget, nil
 }
 
-func (s *sqliteStorage) Update(forget *entities.Forget) (*entities.Forget, error) {
+func (s *sqliteStorage) Update(forget *entity.Forget) (*entity.Forget, error) {
 	_, err := s.db.Exec(`UPDATE forgets SET enabled = ?, lastx = ?, hourly = ?, daily = ?, weekly = ?, monthly = ?, yearly = ? WHERE id = ?`,
 		forget.Enabled,
 		forget.LastX,

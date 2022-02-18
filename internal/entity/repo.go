@@ -1,4 +1,4 @@
-package entities
+package entity
 
 // Repo for storing repository information.
 type Repo struct {

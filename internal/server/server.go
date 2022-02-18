@@ -13,7 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 	"zerosrealm.xyz/tergum/internal/log"
 	"zerosrealm.xyz/tergum/internal/restic"
 	"zerosrealm.xyz/tergum/internal/server/config"
@@ -24,15 +24,15 @@ import (
 type PersistentData struct {
 	Mutex sync.Mutex
 
-	// Repos   []*entities.Repo
-	// Agents  []*entities.Agent
-	// Backups []*entities.Backup
+	// Repos   []*entity.Repo
+	// Agents  []*entity.Agent
+	// Backups []*entity.Backup
 
 	// RepoIncrement   int
 	// AgentIncrement  int
 	// BackupIncrement int
 
-	BackupSubscribers map[int][]*entities.Agent
+	BackupSubscribers map[int][]*entity.Agent
 
 	Jobs map[string][]byte
 

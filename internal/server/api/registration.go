@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 func generatePSK(n int) (string, error) {
@@ -27,7 +27,7 @@ func (api *API) RegisterAgent() http.HandlerFunc {
 	}
 
 	type response struct {
-		Agent *entities.Agent `json:"agent"`
+		*entity.Agent
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -97,7 +97,7 @@ func (api *API) RegisterAgent() http.HandlerFunc {
 
 		for _, agent := range agents {
 			if agent.Name == req.Hostname && agent.IP == ip && agent.Port == req.Port {
-				api.respond(w, r, &response{Agent: agent}, http.StatusOK)
+				api.respond(w, r, &response{agent}, http.StatusOK)
 				return
 			}
 		}
@@ -108,7 +108,7 @@ func (api *API) RegisterAgent() http.HandlerFunc {
 			return
 		}
 
-		agent := &entities.Agent{
+		agent := &entity.Agent{
 			Name: req.Hostname,
 			IP:   ip,
 			Port: req.Port,
@@ -121,6 +121,6 @@ func (api *API) RegisterAgent() http.HandlerFunc {
 			return
 		}
 
-		api.respond(w, r, response{Agent: agent}, http.StatusOK)
+		api.respond(w, r, response{agent}, http.StatusOK)
 	}
 }

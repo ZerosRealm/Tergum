@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"strconv"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type AgentCache interface {
-	Get(id []byte) (*entities.Agent, error)
-	GetAll() ([]*entities.Agent, error)
+	Get(id []byte) (*entity.Agent, error)
+	GetAll() ([]*entity.Agent, error)
 
-	Add(agent *entities.Agent) error
+	Add(agent *entity.Agent) error
 	Invalidate(id []byte) error
 }
 
 type AgentStorage interface {
-	Get(id []byte) (*entities.Agent, error)
-	GetAll() ([]*entities.Agent, error)
-	Create(agent *entities.Agent) (*entities.Agent, error)
-	Update(agent *entities.Agent) (*entities.Agent, error)
+	Get(id []byte) (*entity.Agent, error)
+	GetAll() ([]*entity.Agent, error)
+	Create(agent *entity.Agent) (*entity.Agent, error)
+	Update(agent *entity.Agent) (*entity.Agent, error)
 	Delete(id []byte) error
 }
 
@@ -35,7 +35,7 @@ func NewAgentService(cache *AgentCache, storage *AgentStorage) *AgentService {
 	}
 }
 
-func (svc *AgentService) Get(id []byte) (*entities.Agent, error) {
+func (svc *AgentService) Get(id []byte) (*entity.Agent, error) {
 	if svc.cache != nil {
 		agent, err := svc.cache.Get(id)
 		if err != nil {
@@ -61,7 +61,7 @@ func (svc *AgentService) Get(id []byte) (*entities.Agent, error) {
 	return agent, nil
 }
 
-func (svc *AgentService) GetAll() ([]*entities.Agent, error) {
+func (svc *AgentService) GetAll() ([]*entity.Agent, error) {
 	if svc.cache != nil {
 		agents, err := svc.cache.GetAll()
 		if err != nil {
@@ -88,7 +88,7 @@ func (svc *AgentService) GetAll() ([]*entities.Agent, error) {
 	return agents, nil
 }
 
-func (svc *AgentService) Create(agent *entities.Agent) (*entities.Agent, error) {
+func (svc *AgentService) Create(agent *entity.Agent) (*entity.Agent, error) {
 	agent, err := svc.storage.Create(agent)
 	if err != nil {
 		return nil, fmt.Errorf("agentSvc.Create: could not create agent: %w", err)
@@ -104,7 +104,7 @@ func (svc *AgentService) Create(agent *entities.Agent) (*entities.Agent, error) 
 	return agent, nil
 }
 
-func (svc *AgentService) Update(agent *entities.Agent) (*entities.Agent, error) {
+func (svc *AgentService) Update(agent *entity.Agent) (*entity.Agent, error) {
 	agent, err := svc.storage.Update(agent)
 	if err != nil {
 		return nil, fmt.Errorf("agentSvc.Update: could not update agent: %w", err)

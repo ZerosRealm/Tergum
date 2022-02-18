@@ -140,7 +140,7 @@
                         {/if}
                     </td>
                     <td>
-                        {#if job.progress != null}
+                        {#if job.progress != null && !job.aborted}
                             <div class="progress progress-bar" class:job-done={job.progress.percent==100} role="progressbar" style="width: {job.progress.percent}%;" aria-valuenow="{job.progress.percent}" aria-valuemin="0" aria-valuemax="100">{job.progress.percent}%</div>
                         {:else}
                             {#if !job.aborted}

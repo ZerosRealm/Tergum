@@ -2,9 +2,10 @@ package job
 
 import (
 	"database/sql"
+	"encoding/json"
 
 	_ "github.com/mattn/go-sqlite3"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type sqliteStorage struct {
@@ -38,9 +39,9 @@ func initDB(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS jobs (
 			id TEXT PRIMARY KEY,
-			done INTEGER DEFAULT 0,
-			aborted INTEGER DEFAULT 0,
-			progress TEXT DEFAULT '',
+			done INTEGER NOT NULL DEFAULT 0,
+			aborted INTEGER NOT NULL DEFAULT 0,
+			progress TEXT NOT NULL DEFAULT '{}',
 
 			start_time TIMESTAMP NOT NULL,
 			end_time TIMESTAMP
@@ -57,8 +58,8 @@ func (s *sqliteStorage) Close() error {
 	return s.db.Close()
 }
 
-func (s *sqliteStorage) Get(id []byte) (*entities.Job, error) {
-	var job entities.Job
+func (s *sqliteStorage) Get(id []byte) (*entity.Job, error) {
+	var job entity.Job
 
 	var exists bool
 	row := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM jobs WHERE id = ?)", string(id))
@@ -70,24 +71,34 @@ func (s *sqliteStorage) Get(id []byte) (*entities.Job, error) {
 		return nil, nil
 	}
 
+	var progress sql.NullString
+	var endTime sql.NullTime
 	err := s.db.QueryRow(`SELECT id, done, aborted, progress, start_time, end_time FROM jobs WHERE id = ?`, string(id)).Scan(
 		&job.ID,
 		&job.Done,
 		&job.Aborted,
-		&job.Progress,
+		&progress,
 		&job.StartTime,
-		&job.EndTime,
+		&endTime,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if endTime.Valid {
+		job.EndTime = endTime.Time
+	}
+
+	if progress.Valid {
+		job.Progress = json.RawMessage(progress.String)
 	}
 
 	return &job, nil
 }
 
 // TODO: Implement pagination.
-func (s *sqliteStorage) GetAll() ([]*entities.Job, error) {
-	var jobs []*entities.Job
+func (s *sqliteStorage) GetAll() ([]*entity.Job, error) {
+	var jobs []*entity.Job
 
 	rows, err := s.db.Query(`SELECT id, done, aborted, progress, start_time, end_time FROM jobs`)
 	if err != nil {
@@ -96,17 +107,27 @@ func (s *sqliteStorage) GetAll() ([]*entities.Job, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var job entities.Job
+		var job entity.Job
+		var progress sql.NullString
+		var endTime sql.NullTime
 		err := rows.Scan(
 			&job.ID,
 			&job.Done,
 			&job.Aborted,
-			&job.Progress,
+			&progress,
 			&job.StartTime,
-			&job.EndTime,
+			&endTime,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if endTime.Valid {
+			job.EndTime = endTime.Time
+		}
+
+		if progress.Valid {
+			job.Progress = json.RawMessage(progress.String)
 		}
 
 		jobs = append(jobs, &job)
@@ -115,7 +136,7 @@ func (s *sqliteStorage) GetAll() ([]*entities.Job, error) {
 	return jobs, nil
 }
 
-func (s *sqliteStorage) Create(job *entities.Job) (*entities.Job, error) {
+func (s *sqliteStorage) Create(job *entity.Job) (*entity.Job, error) {
 	_, err := s.db.Exec(`INSERT INTO jobs (id, start_time) VALUES (?, ?)`,
 		job.ID,
 		job.StartTime,
@@ -127,7 +148,7 @@ func (s *sqliteStorage) Create(job *entities.Job) (*entities.Job, error) {
 	return job, nil
 }
 
-func (s *sqliteStorage) Update(job *entities.Job) (*entities.Job, error) {
+func (s *sqliteStorage) Update(job *entity.Job) (*entity.Job, error) {
 	_, err := s.db.Exec(`UPDATE jobs SET done = ?, aborted = ?, progress = ?, start_time = ?, end_time = ? WHERE id = ?`,
 		job.Done,
 		job.Aborted,

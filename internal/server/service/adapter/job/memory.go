@@ -3,7 +3,7 @@ package job
 import (
 	"sync"
 
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 /*
@@ -12,17 +12,17 @@ import (
 
 type MemoryCache struct {
 	mutex sync.RWMutex
-	jobs  map[string]*entities.Job
+	jobs  map[string]*entity.Job
 }
 
 func NewMemoryCache() *MemoryCache {
 	return &MemoryCache{
 		mutex: sync.RWMutex{},
-		jobs:  make(map[string]*entities.Job),
+		jobs:  make(map[string]*entity.Job),
 	}
 }
 
-func (s *MemoryCache) Get(id []byte) (*entities.Job, error) {
+func (s *MemoryCache) Get(id []byte) (*entity.Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -35,11 +35,11 @@ func (s *MemoryCache) Get(id []byte) (*entities.Job, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryCache) GetAll() ([]*entities.Job, error) {
+func (s *MemoryCache) GetAll() ([]*entity.Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	jobs := make([]*entities.Job, 0, len(s.jobs))
+	jobs := make([]*entity.Job, 0, len(s.jobs))
 	for _, job := range s.jobs {
 		jobs = append(jobs, job)
 	}
@@ -47,7 +47,7 @@ func (s *MemoryCache) GetAll() ([]*entities.Job, error) {
 	return jobs, nil
 }
 
-func (s *MemoryCache) Add(job *entities.Job) error {
+func (s *MemoryCache) Add(job *entity.Job) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -69,17 +69,17 @@ func (s *MemoryCache) Invalidate(id []byte) error {
 
 type MemoryStorage struct {
 	mutex sync.RWMutex
-	jobs  map[string]*entities.Job
+	jobs  map[string]*entity.Job
 }
 
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
 		mutex: sync.RWMutex{},
-		jobs:  make(map[string]*entities.Job),
+		jobs:  make(map[string]*entity.Job),
 	}
 }
 
-func (s *MemoryStorage) Get(id []byte) (*entities.Job, error) {
+func (s *MemoryStorage) Get(id []byte) (*entity.Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -92,11 +92,11 @@ func (s *MemoryStorage) Get(id []byte) (*entities.Job, error) {
 }
 
 // TODO: Implement pagination.
-func (s *MemoryStorage) GetAll() ([]*entities.Job, error) {
+func (s *MemoryStorage) GetAll() ([]*entity.Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	jobs := make([]*entities.Job, 0, len(s.jobs))
+	jobs := make([]*entity.Job, 0, len(s.jobs))
 	for _, job := range s.jobs {
 		jobs = append(jobs, job)
 	}
@@ -104,7 +104,7 @@ func (s *MemoryStorage) GetAll() ([]*entities.Job, error) {
 	return jobs, nil
 }
 
-func (s *MemoryStorage) Create(job *entities.Job) (*entities.Job, error) {
+func (s *MemoryStorage) Create(job *entity.Job) (*entity.Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -113,7 +113,7 @@ func (s *MemoryStorage) Create(job *entities.Job) (*entities.Job, error) {
 	return job, nil
 }
 
-func (s *MemoryStorage) Update(job *entities.Job) (*entities.Job, error) {
+func (s *MemoryStorage) Update(job *entity.Job) (*entity.Job, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/robfig/cron/v3"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 type schedule struct {
@@ -32,7 +32,7 @@ func (man *Manager) BuildSchedules() {
 	}
 }
 
-func (schedule *schedule) Start() ([]*entities.Job, error) {
+func (schedule *schedule) Start() ([]*entity.Job, error) {
 	backup, err := schedule.manager.services.BackupSvc.Get([]byte(strconv.Itoa(schedule.BackupID)))
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (schedule *schedule) Start() ([]*entities.Job, error) {
 		return nil, nil
 	}
 
-	agents := make([]*entities.Agent, 0)
+	agents := make([]*entity.Agent, 0)
 	for _, agentID := range subcribers.AgentIDs {
 		agent, err := schedule.manager.services.AgentSvc.Get([]byte(strconv.Itoa(agentID)))
 		if err != nil {
@@ -66,7 +66,7 @@ func (schedule *schedule) Start() ([]*entities.Job, error) {
 		agents = append(agents, agent)
 	}
 
-	jobs := []*entities.Job{}
+	jobs := []*entity.Job{}
 	for _, agent := range agents {
 		target := strconv.Itoa(backup.Target)
 		repo, err := schedule.manager.services.RepoSvc.Get([]byte(target))
@@ -81,13 +81,13 @@ func (schedule *schedule) Start() ([]*entities.Job, error) {
 			break
 		}
 
-		jobPacket := &entities.JobPacket{
+		jobPacket := &entity.JobPacket{
 			Type:  "backup",
 			Agent: agent,
 			Repo:  repo,
 		}
 
-		backupJob := &entities.BackupJob{
+		backupJob := &entity.BackupJob{
 			Backup: backup,
 		}
 

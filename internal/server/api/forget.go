@@ -5,13 +5,13 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 func (api *API) GetForget() http.HandlerFunc {
 	type request struct{}
 	type response struct {
-		Forget *entities.Forget `json:"forget"`
+		Forget *entity.Forget `json:"forget"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -34,10 +34,10 @@ func (api *API) GetForget() http.HandlerFunc {
 
 func (api *API) UpdateForget() http.HandlerFunc {
 	type request struct {
-		entities.Forget
+		entity.Forget
 	}
 	type response struct {
-		Forget *entities.Forget `json:"forget"`
+		Forget *entity.Forget `json:"forget"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)

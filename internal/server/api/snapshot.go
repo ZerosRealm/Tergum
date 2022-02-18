@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 	"zerosrealm.xyz/tergum/internal/restic"
 	manager "zerosrealm.xyz/tergum/internal/server/manager"
 )
@@ -81,7 +81,7 @@ func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 		Exclude string `json:"exclude"`
 	}
 	type response struct {
-		Job *entities.Job `json:"job"`
+		Job *entity.Job `json:"job"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -112,13 +112,13 @@ func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 			return
 		}
 
-		jobPacket := &entities.JobPacket{
+		jobPacket := &entity.JobPacket{
 			Type:  "restore",
 			Repo:  repo,
 			Agent: agent,
 		}
 
-		restoreJob := &entities.RestoreJob{
+		restoreJob := &entity.RestoreJob{
 			Snapshot: snapshot,
 			Target:   req.Dest,
 			Include:  req.Include,

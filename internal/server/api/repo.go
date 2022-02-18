@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"zerosrealm.xyz/tergum/internal/entities"
+	"zerosrealm.xyz/tergum/internal/entity"
 )
 
 func (api *API) GetRepos() http.HandlerFunc {
 	type response struct {
-		Repos []*entities.Repo `json:"repos"`
+		Repos []*entity.Repo `json:"repos"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		repos, err := api.services.RepoSvc.GetAll()
@@ -20,7 +20,7 @@ func (api *API) GetRepos() http.HandlerFunc {
 		}
 
 		if repos == nil {
-			repos = make([]*entities.Repo, 0)
+			repos = make([]*entity.Repo, 0)
 		}
 
 		api.respond(w, r, &response{Repos: repos}, http.StatusOK)
@@ -35,7 +35,7 @@ func (api *API) CreateRepo() http.HandlerFunc {
 		Settings []string `json:"settings"`
 	}
 	type response struct {
-		Repo *entities.Repo `json:"repo"`
+		Repo *entity.Repo `json:"repo"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req request
@@ -45,7 +45,7 @@ func (api *API) CreateRepo() http.HandlerFunc {
 			return
 		}
 
-		repo := &entities.Repo{
+		repo := &entity.Repo{
 			Name:     req.Name,
 			Repo:     req.Repo,
 			Password: req.Password,
@@ -71,7 +71,7 @@ func (api *API) UpdateRepo() http.HandlerFunc {
 		Settings []string `json:"settings"`
 	}
 	type response struct {
-		Repo *entities.Repo `json:"repo"`
+		Repo *entity.Repo `json:"repo"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -98,7 +98,7 @@ func (api *API) UpdateRepo() http.HandlerFunc {
 		status := http.StatusOK
 		// TODO: Create a repo with the given ID if it does not exist
 		// if foundRepo == nil {
-		// 	foundRepo = &entities.Repo{
+		// 	foundRepo = &entity.Repo{
 		// 		ID: id,
 		// 	}
 		// 	status = http.StatusCreated

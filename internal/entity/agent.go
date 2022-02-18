@@ -1,4 +1,4 @@
-package entities
+package entity
 
 // Agent to send jobs to.
 type Agent struct {
