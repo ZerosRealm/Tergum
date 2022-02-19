@@ -78,17 +78,15 @@ func New(conf *config.Config, services *service.Services) (*Server, error) {
 	}
 	man := manager.NewManager(ctx, services, logger, &wsConnections)
 
-	if conf.Restic == "" {
-		defer logger.Close()
-		logger.Fatal("no path to restic defined - exiting")
-	}
+	var resticExe *restic.Restic
+	if conf.Restic != "" {
+		if _, err := os.Stat(conf.Restic); os.IsNotExist(err) {
+			defer logger.Close()
+			logger.Fatal("no restic executable found - exiting")
+		}
 
-	if _, err := os.Stat(conf.Restic); os.IsNotExist(err) {
-		defer logger.Close()
-		logger.Fatal("no restic executable found - exiting")
+		resticExe = restic.New(ctx, conf.Restic)
 	}
-
-	resticExe := restic.New(ctx, conf.Restic)
 
 	srv := &Server{
 		ctx:       ctx,

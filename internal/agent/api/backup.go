@@ -15,7 +15,7 @@ func (api *API) Backup() http.HandlerFunc {
 			return
 		}
 
-		go api.manager.Backup(req.Job, req.Repo, req.Backup)
+		go api.manager.Backup(req.Job.ID, req.Repo, req.Backup)
 
 		api.respond(w, r, nil, http.StatusNoContent)
 	}

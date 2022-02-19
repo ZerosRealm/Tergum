@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/robfig/cron/v3"
+	agentRequest "zerosrealm.xyz/tergum/internal/agent/api/request"
 	"zerosrealm.xyz/tergum/internal/entity"
 )
 
@@ -81,17 +82,19 @@ func (schedule *schedule) Start() ([]*entity.Job, error) {
 			break
 		}
 
-		jobPacket := &entity.JobPacket{
-			Type:  "backup",
-			Agent: agent,
-			Repo:  repo,
-		}
-
-		backupJob := &entity.BackupJob{
+		backupReq := &agentRequest.Backup{
+			Repo:   repo,
 			Backup: backup,
 		}
+		jobRequest := &entity.JobRequest{
+			Type:  "backup",
+			Agent: agent,
+			// Repo:  repo,
 
-		job, err := schedule.manager.NewJob(jobPacket, backupJob)
+			Request: backupReq,
+		}
+
+		job, err := schedule.manager.NewJob(jobRequest)
 		if err != nil {
 			schedule.manager.log.WithFields("backup", backup.ID).Error("schedule.Start: could not create new job", err)
 			return nil, err

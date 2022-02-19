@@ -1,18 +1,20 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
+	agentRequest "zerosrealm.xyz/tergum/internal/agent/api/request"
 	"zerosrealm.xyz/tergum/internal/entity"
 	"zerosrealm.xyz/tergum/internal/restic"
 	manager "zerosrealm.xyz/tergum/internal/server/manager"
 )
 
-func (api *API) GetSnapshots(resticExe *restic.Restic) http.HandlerFunc {
+func (api *API) GetSnapshots(man *manager.Manager, resticExe *restic.Restic) http.HandlerFunc {
 	type response struct {
 		Snapshots []*restic.Snapshot `json:"snapshots"`
 	}
@@ -31,22 +33,63 @@ func (api *API) GetSnapshots(resticExe *restic.Restic) http.HandlerFunc {
 			return
 		}
 
-		snapshots, err := resticExe.Snapshots(repo.Repo, repo.Password, repo.Settings...)
-		if err != nil {
-			api.error(w, r, "Could not get snapshots.", err, http.StatusInternalServerError)
-			return
-		}
-		for i, snapshot := range snapshots {
-			if len(snapshot.Tags) == 0 {
-				snapshots[i].Tags = make([]string, 0)
+		log := api.log.WithFields("method", r.Method, "path", r.URL.Path, "src", r.RemoteAddr)
+
+		if resticExe != nil {
+			snapshots, err := resticExe.Snapshots(repo.Repo, repo.Password, repo.Settings...)
+			if err == nil {
+				api.respond(w, r, response{Snapshots: snapshots}, http.StatusOK)
+				return
 			}
+			log.Debug("Server could not get snapshots:", err)
 		}
 
-		api.respond(w, r, response{Snapshots: snapshots}, http.StatusOK)
+		agents, err := api.services.AgentSvc.GetAll()
+		if err != nil {
+			api.error(w, r, "Could not get agents.", err, http.StatusInternalServerError)
+			return
+		}
+
+		if agents == nil && len(agents) == 0 {
+			api.error(w, r, "No agents found to send request to.", fmt.Errorf("no agents found"), http.StatusNotFound)
+			return
+		}
+
+		for _, agent := range agents {
+			log.Debug("Sending request to agent", agent.Name)
+			snapshotsReq := &agentRequest.GetSnapshots{
+				Repo: repo,
+			}
+			jobRequest := &entity.JobRequest{
+				Type:  "getsnapshots",
+				Agent: agent,
+
+				Request: snapshotsReq,
+			}
+
+			body, err := man.SendRequest(jobRequest, agent)
+			if err != nil {
+				log.Debug("Agent returned error:", err)
+				continue
+			}
+			log.Debug("Returned body:", string(body))
+
+			var resp response
+			err = json.Unmarshal(body, &resp)
+			if err != nil {
+				api.error(w, r, "Could not unmarshal agent response.", err, http.StatusInternalServerError)
+				return
+			}
+
+			api.respond(w, r, resp, http.StatusOK)
+			return
+		}
+
+		api.error(w, r, "No agents could get snapshots.", fmt.Errorf("no agents could get snapshots, check debug logs."), http.StatusNotFound)
 	}
 }
 
-func (api *API) DeleteSnapshot(resticExe *restic.Restic) http.HandlerFunc {
+func (api *API) DeleteSnapshot(man *manager.Manager, resticExe *restic.Restic) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		repoID := vars["id"]
@@ -63,22 +106,63 @@ func (api *API) DeleteSnapshot(resticExe *restic.Restic) http.HandlerFunc {
 			return
 		}
 
-		out, err := resticExe.Forget(repo.Repo, repo.Password, snapshot, nil, repo.Settings...)
+		log := api.log.WithFields("method", r.Method, "path", r.URL.Path, "src", r.RemoteAddr)
+
+		if resticExe != nil {
+			out, err := resticExe.Forget(repo.Repo, repo.Password, []string{snapshot}, nil, repo.Settings...)
+			if err == nil {
+				api.respond(w, r, nil, http.StatusNoContent)
+				return
+			}
+			log.Debug("Server could not delete snapshot:", out)
+		}
+
+		agents, err := api.services.AgentSvc.GetAll()
 		if err != nil {
-			api.error(w, r, "Running forget policy returned errors.", fmt.Errorf("%s: %s", string(out), err), http.StatusInternalServerError)
+			api.error(w, r, "Could not get agents.", err, http.StatusInternalServerError)
 			return
 		}
 
-		api.respond(w, r, nil, http.StatusNoContent)
+		if agents == nil && len(agents) == 0 {
+			api.error(w, r, "No agents found to send request to.", fmt.Errorf("no agents found"), http.StatusNotFound)
+			return
+		}
+
+		for _, agent := range agents {
+			log.Debug("Sending request to agent", agent.Name)
+			snapshotsReq := &agentRequest.DeleteSnapshot{
+				Repo: repo,
+				Snapshots: []string{
+					snapshot,
+				},
+			}
+			jobRequest := &entity.JobRequest{
+				Type:  "deletesnapshot",
+				Agent: agent,
+
+				Request: snapshotsReq,
+			}
+
+			_, err := man.SendRequest(jobRequest, agent)
+			if err != nil {
+				log.Debug("Agent returned error:", err)
+				continue
+			}
+
+			api.respond(w, r, nil, http.StatusNoContent)
+			return
+		}
+
+		api.error(w, r, "No agents could delete snapshot.", fmt.Errorf("no agents could delete snapshot, check debug logs."), http.StatusNotFound)
 	}
 }
 
 func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 	type request struct {
-		Agent   int    `json:"agent"`
-		Dest    string `json:"destination"`
-		Include string `json:"include"`
-		Exclude string `json:"exclude"`
+		Agent   int      `json:"agent"`
+		Dest    string   `json:"destination"`
+		Include []string `json:"include"`
+		Exclude []string `json:"exclude"`
 	}
 	type response struct {
 		Job *entity.Job `json:"job"`
@@ -112,20 +196,22 @@ func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 			return
 		}
 
-		jobPacket := &entity.JobPacket{
-			Type:  "restore",
-			Repo:  repo,
-			Agent: agent,
-		}
-
-		restoreJob := &entity.RestoreJob{
+		restoreReq := &agentRequest.Restore{
+			Repo:     repo,
 			Snapshot: snapshot,
 			Target:   req.Dest,
 			Include:  req.Include,
 			Exclude:  req.Exclude,
 		}
+		jobRequest := &entity.JobRequest{
+			Type:  "restore",
+			Agent: agent,
+			// Repo:  repo,
 
-		job, err := manager.NewJob(jobPacket, restoreJob)
+			Request: restoreReq,
+		}
+
+		job, err := manager.NewJob(jobRequest)
 		if err != nil {
 			api.error(w, r, "Could not create job.", err, http.StatusInternalServerError)
 			return
@@ -136,12 +222,61 @@ func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 	}
 }
 
-func (api *API) ListSnapshot(resticExe *restic.Restic) http.HandlerFunc {
-	type file struct {
-		*restic.FileNode
-		Files []*file `json:"files"`
-	}
+type file struct {
+	*restic.FileNode
+	Files []*file `json:"files"`
+}
 
+func generateDirectories(nodes []*restic.FileNode) []*file {
+	dirIndex := make([]*file, 0)
+	rootDirs := make([]*file, 0)
+	for _, node := range nodes {
+		if node.Type == "dir" {
+			dir := &file{
+				FileNode: node,
+				Files:    make([]*file, 0),
+			}
+			dirIndex = append(dirIndex, dir)
+
+			found := false
+			for _, parentDir := range dirIndex {
+				parentPath := parentDir.FileNode.Path
+
+				temp := strings.Split(dir.Path, "/")
+				dirPath := temp[0 : len(temp)-1]
+
+				if parentPath == strings.Join(dirPath, "/") {
+					parentDir.Files = append(parentDir.Files, dir)
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				rootDirs = append(rootDirs, dir)
+			}
+		}
+
+		if node.Type == "file" {
+			for _, dir := range dirIndex {
+				dirPath := dir.FileNode.Path
+
+				temp := strings.Split(node.Path, "/")
+				filePath := temp[0 : len(temp)-1]
+
+				if dirPath == strings.Join(filePath, "/") {
+					dir.Files = append(dir.Files, &file{
+						FileNode: node,
+						Files:    make([]*file, 0),
+					})
+				}
+			}
+		}
+	}
+	return rootDirs
+}
+
+func (api *API) ListSnapshot(man *manager.Manager, resticExe *restic.Restic) http.HandlerFunc {
 	type response struct {
 		Directories []*file `json:"directories"`
 	}
@@ -162,58 +297,58 @@ func (api *API) ListSnapshot(resticExe *restic.Restic) http.HandlerFunc {
 			return
 		}
 
-		nodes, err := resticExe.List(repo.Repo, repo.Password, snapshot, repo.Settings...)
+		log := api.log.WithFields("method", r.Method, "path", r.URL.Path, "src", r.RemoteAddr)
+
+		if resticExe != nil {
+			nodes, err := resticExe.List(repo.Repo, repo.Password, snapshot, repo.Settings...)
+			if err == nil {
+				api.respond(w, r, response{Directories: generateDirectories(nodes)}, http.StatusOK)
+				return
+			}
+			log.Debug("Server could not list snapshot:", err)
+		}
+
+		agents, err := api.services.AgentSvc.GetAll()
 		if err != nil {
-			api.error(w, r, "Could not list files inside snapshot.", err, http.StatusInternalServerError)
+			api.error(w, r, "Could not get agents.", err, http.StatusInternalServerError)
 			return
 		}
 
-		dirIndex := make([]*file, 0)
-		rootDirs := make([]*file, 0)
-		for _, node := range nodes {
-			if node.Type == "dir" {
-				dir := &file{
-					FileNode: node,
-					Files:    make([]*file, 0),
-				}
-				dirIndex = append(dirIndex, dir)
-
-				found := false
-				for _, parentDir := range dirIndex {
-					parentPath := parentDir.FileNode.Path
-
-					temp := strings.Split(dir.Path, "/")
-					dirPath := temp[0 : len(temp)-1]
-
-					if parentPath == strings.Join(dirPath, "/") {
-						parentDir.Files = append(parentDir.Files, dir)
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					rootDirs = append(rootDirs, dir)
-				}
-			}
-
-			if node.Type == "file" {
-				for _, dir := range dirIndex {
-					dirPath := dir.FileNode.Path
-
-					temp := strings.Split(node.Path, "/")
-					filePath := temp[0 : len(temp)-1]
-
-					if dirPath == strings.Join(filePath, "/") {
-						dir.Files = append(dir.Files, &file{
-							FileNode: node,
-							Files:    make([]*file, 0),
-						})
-					}
-				}
-			}
+		if agents == nil && len(agents) == 0 {
+			api.error(w, r, "No agents found to send request to.", fmt.Errorf("no agents found"), http.StatusNotFound)
+			return
 		}
 
-		api.respond(w, r, response{Directories: rootDirs}, http.StatusOK)
+		for _, agent := range agents {
+			log.Debug("Sending request to agent", agent.Name)
+			snapshotsReq := &agentRequest.List{
+				Repo:     repo,
+				Snapshot: snapshot,
+			}
+			jobRequest := &entity.JobRequest{
+				Type:  "list",
+				Agent: agent,
+
+				Request: snapshotsReq,
+			}
+
+			body, err := man.SendRequest(jobRequest, agent)
+			if err != nil {
+				log.Debug("Agent returned error:", err)
+				continue
+			}
+
+			var resp response
+			err = json.Unmarshal(body, &resp)
+			if err != nil {
+				api.error(w, r, "Could not unmarshal agent response.", err, http.StatusInternalServerError)
+				return
+			}
+
+			api.respond(w, r, resp, http.StatusOK)
+			return
+		}
+
+		api.error(w, r, "No agents could list snapshot.", fmt.Errorf("no agents could list snapshot, check debug logs."), http.StatusNotFound)
 	}
 }

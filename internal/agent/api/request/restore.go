@@ -3,7 +3,7 @@ package request
 import "zerosrealm.xyz/tergum/internal/entity"
 
 type Restore struct {
-	Job      string       `json:"job"`
+	Job
 	Repo     *entity.Repo `json:"repo"`
 	Snapshot string       `json:"snapshot"`
 	Target   string       `json:"target"`

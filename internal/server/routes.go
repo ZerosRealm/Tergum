@@ -52,10 +52,10 @@ func (srv *Server) routes() {
 	// apiRoute.Handle("/repo/{id}", srv.getRepo()).Methods("GET")
 	apiRoute.Handle("/repo/{id}", api.UpdateRepo()).Methods("PUT")
 	apiRoute.Handle("/repo/{id}", api.DeleteRepo()).Methods("DELETE")
-	apiRoute.Handle("/repo/{id}/snapshot", api.GetSnapshots(srv.restic)).Methods("GET")
-	apiRoute.Handle("/repo/{id}/snapshot/{snapshot}", api.DeleteSnapshot(srv.restic)).Methods("DELETE")
+	apiRoute.Handle("/repo/{id}/snapshot", api.GetSnapshots(srv.manager, srv.restic)).Methods("GET")
+	apiRoute.Handle("/repo/{id}/snapshot/{snapshot}", api.DeleteSnapshot(srv.manager, srv.restic)).Methods("DELETE")
 	apiRoute.Handle("/repo/{id}/snapshot/{snapshot}/restore", api.RestoreSnapshot(srv.manager)).Methods("POST")
-	apiRoute.Handle("/repo/{id}/snapshot/{snapshot}/list", api.ListSnapshot(srv.restic)).Methods("GET")
+	apiRoute.Handle("/repo/{id}/snapshot/{snapshot}/list", api.ListSnapshot(srv.manager, srv.restic)).Methods("GET")
 
 	apiRoute.Handle("/job", api.GetJobs(srv.manager)).Methods("GET")
 	apiRoute.Handle("/job", api.CreateJob(srv.manager)).Methods("POST")

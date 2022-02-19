@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
+	agentRequest "zerosrealm.xyz/tergum/internal/agent/api/request"
 	"zerosrealm.xyz/tergum/internal/entity"
 	"zerosrealm.xyz/tergum/internal/restic"
 	manager "zerosrealm.xyz/tergum/internal/server/manager"
@@ -53,10 +55,52 @@ func (api *API) StopJob(man *manager.Manager) http.HandlerFunc {
 			return
 		}
 
-		err = man.StopJob(job)
-		if err != nil {
-			api.error(w, r, "Could not stop job.", err, http.StatusInternalServerError)
+		backupRequest := job.Request.(agentRequest.Backup)
+		if backupRequest.ID == "" {
+			api.error(w, r, "No backup found with that ID.", fmt.Errorf("no backup found with that ID"), http.StatusNotFound)
 			return
+		}
+
+		agents, err := api.services.BackupSubSvc.Get([]byte(strconv.Itoa(backupRequest.Backup.ID)))
+		if err != nil {
+			api.error(w, r, "Could not get backup subscriptions.", err, http.StatusInternalServerError)
+			return
+		}
+
+		if agents == nil || len(agents.AgentIDs) == 0 {
+			api.error(w, r, "No agents subscribed to that backup.", fmt.Errorf("no agents subscribed to that backup"), http.StatusNotFound)
+			return
+		}
+
+		for _, agentID := range agents.AgentIDs {
+			agent, err := api.services.AgentSvc.Get([]byte(strconv.Itoa(agentID)))
+			if err != nil {
+				api.error(w, r, "Could not get agent to send request to.", err, http.StatusInternalServerError)
+				return
+			}
+
+			if agent == nil {
+				api.error(w, r, "No agent found with that ID.", fmt.Errorf("no agent found with the ID '%d'", agentID), http.StatusNotFound)
+				return
+			}
+
+			stopReq := &agentRequest.Stop{
+				Job: agentRequest.Job{
+					ID: job.ID,
+				},
+			}
+			jobRequest := &entity.JobRequest{
+				Type:  "stop",
+				Agent: agent,
+
+				Request: stopReq,
+			}
+
+			_, err = man.SendRequest(jobRequest, agent)
+			if err != nil {
+				api.error(w, r, "Could not stop job.", err, http.StatusInternalServerError)
+				return
+			}
 		}
 
 		api.respond(w, r, nil, http.StatusNoContent)
@@ -94,9 +138,11 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 			return
 		}
 
+		var authedAgent *entity.Agent
 		for _, agent := range agents {
 			if agent.PSK == psk {
 				access = true
+				authedAgent = agent
 				break
 			}
 		}
@@ -154,18 +200,26 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 				return
 			}
 
-			options := &restic.ForgetOptions{
-				LastX:   forgetPolicy.LastX,
-				Hourly:  forgetPolicy.Hourly,
-				Daily:   forgetPolicy.Daily,
-				Weekly:  forgetPolicy.Weekly,
-				Monthly: forgetPolicy.Monthly,
-				Yearly:  forgetPolicy.Yearly,
+			backupRequest := job.Request.(agentRequest.Backup)
+			if backupRequest.ID == "" {
+				api.error(w, r, "Running forget policy failed.", fmt.Errorf("Backup request is invalid"), http.StatusBadRequest)
+				return
 			}
 
-			out, err := resticExe.Forget(job.Packet.Repo.Repo, job.Packet.Repo.Password, "", options)
+			forgetReq := &agentRequest.Forget{
+				Repo:   backupRequest.Repo,
+				Policy: forgetPolicy,
+			}
+			jobRequest := &entity.JobRequest{
+				Type:  "forget",
+				Agent: authedAgent,
+
+				Request: forgetReq,
+			}
+
+			_, err = man.SendRequest(jobRequest, authedAgent)
 			if err != nil {
-				api.error(w, r, "Running forget policy returned errors.", fmt.Errorf("%s: %s", string(out), err), http.StatusInternalServerError)
+				api.error(w, r, "Could not run forget policy.", err, http.StatusInternalServerError)
 				return
 			}
 		}

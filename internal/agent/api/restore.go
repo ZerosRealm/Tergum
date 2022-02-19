@@ -15,7 +15,7 @@ func (api *API) Restore() http.HandlerFunc {
 			return
 		}
 
-		go api.manager.Restore(req.Job, req.Repo, req.Snapshot, req.Target, req.Include, req.Exclude)
+		go api.manager.Restore(req.Job.ID, req.Repo, req.Snapshot, req.Target, req.Include, req.Exclude)
 
 		api.respond(w, r, nil, http.StatusNoContent)
 	}

@@ -16,7 +16,7 @@ func (api *API) Stop() http.HandlerFunc {
 			return
 		}
 
-		go api.manager.Stop(req.Job)
+		go api.manager.Stop(req.Job.ID)
 
 		api.respond(w, r, nil, http.StatusNoContent)
 	}

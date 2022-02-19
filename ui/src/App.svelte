@@ -12,7 +12,6 @@
 
 	import Toasts from './common/Toasts.svelte'
 
-
 	let currentPage = "home"
 
 	let page

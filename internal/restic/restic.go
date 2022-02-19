@@ -237,13 +237,15 @@ type ForgetOptions struct {
 }
 
 // Forget a snapshot.
-func (r *Restic) Forget(repo, password, snapshot string, options *ForgetOptions, env ...string) ([]byte, error) {
+func (r *Restic) Forget(repo, password string, snapshots []string, options *ForgetOptions, env ...string) ([]byte, error) {
 	args := []string{
 		"forget",
 	}
 
-	if snapshot != "" {
-		args = append(args, snapshot)
+	if snapshots != nil && len(snapshots) != 0 {
+		for _, snapshot := range snapshots {
+			args = append(args, snapshot)
+		}
 	}
 
 	args = append(args, "--repo")
@@ -320,13 +322,12 @@ func (r *Restic) List(repo, password, snapshot string, env ...string) ([]*FileNo
 	cmd.Env = append(cmd.Env, env...)
 
 	out, err := cmd.CombinedOutput()
-
 	if err != nil {
 		if len(out) == 0 {
 			return nil, err
 		}
 
-		return nil, fmt.Errorf("%s", string(out))
+		return nil, fmt.Errorf("%s: %s", err, string(out))
 	}
 
 	nodes := make([]*FileNode, 0)

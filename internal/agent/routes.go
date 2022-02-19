@@ -34,8 +34,12 @@ func (srv *Server) routes() {
 	apiRoute.Use(api.Authenticate())
 
 	apiRoute.Handle("/backup", api.Backup()).Methods("POST")
-	apiRoute.Handle("/restore", api.Restore()).Methods("POST")
 	apiRoute.Handle("/stop", api.Stop()).Methods("POST")
+	apiRoute.Handle("/snapshot", api.GetSnapshots()).Methods("POST")
+	apiRoute.Handle("/snapshot", api.DeleteSnapshot()).Methods("DELETE")
+	apiRoute.Handle("/snapshot/list", api.ListSnapshot()).Methods("POST")
+	apiRoute.Handle("/snapshot/forget", api.Forget()).Methods("POST")
+	apiRoute.Handle("/snapshot/restore", api.Restore()).Methods("POST")
 
 	srv.router.Use(mux.CORSMethodMiddleware(srv.router))
 	srv.router.Use(cors)

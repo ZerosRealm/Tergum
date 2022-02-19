@@ -3,17 +3,19 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"net"
+	"io"
+	"net/http"
+	"path"
+	"strconv"
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/websocket"
 	"github.com/rs/xid"
 
+	agentRequest "zerosrealm.xyz/tergum/internal/agent/api/request"
 	"zerosrealm.xyz/tergum/internal/entity"
 	"zerosrealm.xyz/tergum/internal/log"
 	"zerosrealm.xyz/tergum/internal/server/service"
@@ -28,7 +30,7 @@ type Manager struct {
 	log *log.Logger
 
 	wsWrite       chan []byte
-	jobQueue      chan entity.JobPacket
+	jobQueue      chan *entity.JobRequest
 	wsConnections *map[string]*websocket.Conn
 }
 
@@ -42,7 +44,7 @@ func NewManager(ctx context.Context, services *service.Services, logger *log.Log
 		log: logger.WithFields("component", "manager"),
 
 		wsWrite:       make(chan []byte, 100),
-		jobQueue:      make(chan entity.JobPacket, 100),
+		jobQueue:      make(chan *entity.JobRequest, 100),
 		wsConnections: wsConns,
 	}
 }
@@ -52,61 +54,60 @@ func (man *Manager) Start() {
 	go man.queueHandler()
 }
 
-func (man *Manager) NewJob(packet *entity.JobPacket, typePacket interface{}) (*entity.Job, error) {
+func (man *Manager) NewJob(jobRequest *entity.JobRequest) (*entity.Job, error) {
 	man.jobsMutex.Lock()
 	defer man.jobsMutex.Unlock()
 
 	id := xid.New().String()
-	packet.ID = id
+	jobRequest.ID = id
 	man.log.Debug("creating new job", id)
 
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(typePacket)
-
-	if err != nil {
-		spew.Dump(typePacket)
-		return nil, fmt.Errorf("manager.newJob: failed to encode job packet: %w", err)
-	}
-	packet.Data = buf.Bytes()
-
-	if packet.Type == "backup" {
-		backupPacket := typePacket.(*entity.BackupJob)
-
-		// Check if it's a valid backup
-		if backupPacket.Backup.Schedule == "" {
-			return nil, fmt.Errorf("manager.newJob: job %s error: backup data is empty", id)
-		}
-
-		backups, err := man.services.BackupSvc.GetAll()
-		if err != nil {
-			return nil, fmt.Errorf("manager.newJob: job %s error: %w", id, err)
-		}
-
-		for _, backup := range backups {
-			if backup.ID == backupPacket.Backup.ID {
-				backup.LastRun = time.Now()
-				man.services.BackupSvc.Update(backup)
-				break
-			}
-		}
-	}
-
 	job := &entity.Job{
-		ID:      id,
-		Done:    false,
-		Aborted: false,
-
-		Packet:    packet,
+		ID:        id,
+		Done:      false,
+		Aborted:   false,
+		Progress:  json.RawMessage([]byte(`{}`)),
 		StartTime: time.Now(),
+		Request:   jobRequest,
 	}
 
-	job, err = man.services.JobSvc.Create(job)
+	switch jobRequest.Type {
+	case "backup":
+		backupRequest := jobRequest.Request.(*agentRequest.Backup)
+
+		if backupRequest.Backup == nil || backupRequest.Backup.Source == "" {
+			return nil, fmt.Errorf("manager.newJob: backup packet is invalid")
+		}
+
+		backupRequest.Job.ID = id
+
+		backup, err := man.services.BackupSvc.Get([]byte(strconv.Itoa(backupRequest.Backup.ID)))
+		if err != nil {
+			return nil, fmt.Errorf("manager.newJob: job %s could not get backup %d error: %w", id, backupRequest.Backup.ID, err)
+		}
+
+		backup.LastRun = time.Now()
+		man.services.BackupSvc.Update(backup)
+
+		jobRequest.Request = backup
+	case "stop":
+		req := jobRequest.Request.(*agentRequest.Stop)
+		req.Job.ID = id
+		jobRequest.Request = req
+	case "restore":
+		req := jobRequest.Request.(*agentRequest.Restore)
+		req.Job.ID = id
+		jobRequest.Request = req
+	default:
+		return nil, fmt.Errorf("manager.newJob: unknown job type %s", jobRequest.Type)
+	}
+
+	job, err := man.services.JobSvc.Create(job)
 	if err != nil {
-		return nil, fmt.Errorf("manager.newJob: job %s could not get created: %w", id, err)
+		return nil, fmt.Errorf("manager.newJob: job %s could not be created: %w", id, err)
 	}
 
-	ok := man.enqueue(*packet)
+	ok := man.enqueue(jobRequest)
 	if !ok {
 		job.Aborted = true
 
@@ -179,38 +180,104 @@ func (man *Manager) jobAborted(jobID string) error {
 	return nil
 }
 
-func (man *Manager) StopJob(job *entity.Job) error {
-	packet := job.Packet
-	packet.Type = "stop"
+type wsToast struct {
+	Type  string `json:"type"`
+	Error error  `json:"error"`
+	Msg   string `json:"msg"`
+}
 
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(entity.StopJob{
-		ID: job.ID,
-	})
+type errorResponse struct {
+	Code    int    `json:"code"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
 
-	if err != nil {
-		return fmt.Errorf("manager.stopJob: %w", err)
+func (man *Manager) WriteErrorWS(err error, msg string) {
+	resp := wsToast{
+		Type:  "error",
+		Error: err,
+		Msg:   msg,
 	}
-	packet.Data = buf.Bytes()
 
-	agentAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", packet.Agent.IP, packet.Agent.Port))
+	errorJSON, err := json.Marshal(resp)
 	if err != nil {
-		return fmt.Errorf("manager.stopJob: %w", err)
+		man.log.Error("manager.SendError: could not marshal error:", err)
+		return
 	}
 
-	conn, err := net.DialTCP("tcp4", nil, agentAddr)
+	man.WriteWS([]byte(errorJSON))
+}
+
+func (man *Manager) SendRequest(job *entity.JobRequest, agent *entity.Agent) ([]byte, error) {
+	msg, err := json.Marshal(job.Request)
 	if err != nil {
-		return fmt.Errorf("manager.stopJob: %w", err)
+		return nil, fmt.Errorf("manager.sendRequest: error marshalling agent stop request: %w", err)
 	}
-	defer conn.Close()
 
-	enc = gob.NewEncoder(conn)
-	enc.Encode(packet)
-	spew.Dump(packet)
+	// TODO: Switch over to API request package.
+	var endpoint string
+	var method string
+	switch job.Type {
+	case "backup":
+		endpoint = "/backup"
+		method = "POST"
+	case "restore":
+		endpoint = "/snapshot/restore"
+		method = "POST"
+	case "stop":
+		endpoint = "/stop"
+		method = "POST"
+	case "list":
+		endpoint = "/snapshot/list"
+		method = "POST"
+	case "forget":
+		endpoint = "/snapshot/forget"
+		method = "POST"
+	case "deletesnapshot":
+		endpoint = "/snapshot"
+		method = "DELETE"
+	case "getsnapshots":
+		endpoint = "/snapshot"
+		method = "POST"
+	default:
+		return nil, fmt.Errorf("manager.sendRequest: unknown job type %s", job.Type)
+	}
 
-	man.log.WithFields("job", job.ID).Debug("successfully sent to", packet.Agent.Name)
-	return nil
+	// TODO: Change to HTTPS when we have a proper TLS support.
+	req, err := http.NewRequest(method, "http://"+path.Join(fmt.Sprintf("%s:%d", agent.IP, agent.Port), "/api/"+endpoint), bytes.NewReader(msg))
+	if err != nil {
+		return nil, fmt.Errorf("manager.sendRequest: error creating request: %w", err)
+	}
+	req.Header.Set("X-PSK", agent.PSK)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("manager.sendRequest: error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	man.log.WithFields("job", job.ID).Debug("successfully sent to", agent.Name)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("manager.sendRequest: error reading response body: %w", err)
+		man.log.WithFields("job", job.ID).Error(err)
+		return nil, err
+	}
+	man.log.WithFields("job", job.ID).Debug("manager.sendRequest: status:", resp.Status, "body:", string(body))
+
+	// If we got an error back from the agent, return this error.
+	if resp.StatusCode > 299 {
+		var errResp errorResponse
+		err := json.Unmarshal(body, &errResp)
+		if err != nil {
+			return nil, fmt.Errorf("manager.sendRequest: error unmarshalling error response: %w", err)
+		}
+		man.log.WithFields("job", job.ID).Warn("non-2XX status:", resp.Status, "error:", errResp.Error)
+		return nil, fmt.Errorf(errResp.Error)
+	}
+
+	return body, nil
 }
 
 func (man *Manager) wsWriter() {
