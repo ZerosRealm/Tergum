@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -92,12 +93,16 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 
 	r.Jobs <- job
 
+	wg := new(sync.WaitGroup)
+
 	go func() {
 		if r.Updates == nil {
 			return
 		}
 
 		for {
+			wg.Add(1)
+			defer wg.Done()
 			select {
 			case <-job.ctx.Done():
 				err := cmd.Process.Signal(os.Interrupt)
@@ -145,6 +150,8 @@ func (r *Restic) Backup(repo, source, password string, exclude []string, jobID s
 		}
 		return out, err
 	}
+
+	wg.Wait()
 
 	return []byte("Done"), nil
 }

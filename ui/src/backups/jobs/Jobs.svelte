@@ -23,10 +23,8 @@
             method: 'GET'
         })
         .then(data => {
-            jobs = data.jobs;
-            for (const id in jobs) {
-                console.log(jobs[id]);
-                parseJob(jobs[id]);
+            for (const id in data.jobs) {
+                parseJob(data.jobs[id]);
             }
             loading = false;
         })
@@ -42,7 +40,6 @@
             return;
         }
         parseJob(data.job);
-
     });
 
     function parseJob(job) {
@@ -52,23 +49,26 @@
         }
 
         if (job.progress == null) {
-            jobs[job.id] = job
+            jobs[job.id] = job;
             return;
         }
 
-        let percent = 0
-        let snapshot = ""
+        let percent = 0;
         if (job.progress.message_type == "status") {
-            percent = Math.floor(job.progress.percent_done * 100)
+            percent = Math.floor(job.progress.percent_done * 100);
         }
         if (job.progress.message_type == "summary") {
-            percent = 100
+            percent = 100;
         }
 
-        job.progress.percent = percent
+        if (jobs[job.id].progress.percent > percent) {
+            return;
+        }
+
+        job.progress.percent = percent;
 
         // delete job.progress
-        jobs[job.id] = job
+        jobs[job.id] = job;
     }
 
     socket.subscribe(event => {
@@ -141,7 +141,7 @@
                     </td>
                     <td>
                         {#if job.progress != null && !job.aborted}
-                            <div class="progress progress-bar" class:job-done={job.progress.percent==100} role="progressbar" style="width: {job.progress.percent}%;" aria-valuenow="{job.progress.percent}" aria-valuemin="0" aria-valuemax="100">{job.progress.percent}%</div>
+                            <div class="progress progress-bar" class:job-done={job.progress.percent==100} role="progressbar" style="width:{job.progress.percent}%;" aria-valuenow="{job.progress.percent}" aria-valuemin="0" aria-valuemax="100">{job.progress.percent}%</div>
                         {:else}
                             {#if !job.aborted}
                                 <div class="progress progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>

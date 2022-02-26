@@ -91,7 +91,7 @@ func (schedule *schedule) Start() ([]*entity.Job, error) {
 			Agent: agent,
 			// Repo:  repo,
 
-			Request: backupReq,
+			Data: backupReq,
 		}
 
 		job, err := schedule.manager.NewJob(jobRequest)

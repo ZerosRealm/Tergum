@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/egonelbre/antifreeze v0.0.0-20210827105133-b207abe9e5a4 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 )

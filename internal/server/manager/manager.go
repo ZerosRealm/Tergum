@@ -73,31 +73,31 @@ func (man *Manager) NewJob(jobRequest *entity.JobRequest) (*entity.Job, error) {
 
 	switch jobRequest.Type {
 	case "backup":
-		backupRequest := jobRequest.Request.(*agentRequest.Backup)
+		req := jobRequest.Data.(*agentRequest.Backup)
 
-		if backupRequest.Backup == nil || backupRequest.Backup.Source == "" {
+		if req.Backup == nil || req.Backup.Source == "" {
 			return nil, fmt.Errorf("manager.newJob: backup packet is invalid")
 		}
 
-		backupRequest.Job.ID = id
+		req.Job.ID = id
 
-		backup, err := man.services.BackupSvc.Get([]byte(strconv.Itoa(backupRequest.Backup.ID)))
+		backup, err := man.services.BackupSvc.Get([]byte(strconv.Itoa(req.Backup.ID)))
 		if err != nil {
-			return nil, fmt.Errorf("manager.newJob: job %s could not get backup %d error: %w", id, backupRequest.Backup.ID, err)
+			return nil, fmt.Errorf("manager.newJob: job %s could not get backup %d error: %w", id, req.Backup.ID, err)
 		}
 
 		backup.LastRun = time.Now()
 		man.services.BackupSvc.Update(backup)
 
-		jobRequest.Request = backup
+		jobRequest.Data = req
 	case "stop":
-		req := jobRequest.Request.(*agentRequest.Stop)
+		req := jobRequest.Data.(*agentRequest.Stop)
 		req.Job.ID = id
-		jobRequest.Request = req
+		jobRequest.Data = req
 	case "restore":
-		req := jobRequest.Request.(*agentRequest.Restore)
+		req := jobRequest.Data.(*agentRequest.Restore)
 		req.Job.ID = id
-		jobRequest.Request = req
+		jobRequest.Data = req
 	default:
 		return nil, fmt.Errorf("manager.newJob: unknown job type %s", jobRequest.Type)
 	}
@@ -209,7 +209,7 @@ func (man *Manager) WriteErrorWS(err error, msg string) {
 }
 
 func (man *Manager) SendRequest(job *entity.JobRequest, agent *entity.Agent) ([]byte, error) {
-	msg, err := json.Marshal(job.Request)
+	msg, err := json.Marshal(job.Data)
 	if err != nil {
 		return nil, fmt.Errorf("manager.sendRequest: error marshalling agent stop request: %w", err)
 	}

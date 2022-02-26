@@ -50,25 +50,42 @@ func (svc *JobService) Get(id []byte) (*entity.Job, error) {
 	if err != nil {
 		return nil, fmt.Errorf("jobSvc.Get: could not get job from storage: %w", err)
 	}
+
+	if svc.cache != nil {
+		err = svc.cache.Add(job)
+		if err != nil {
+			return nil, fmt.Errorf("jobSvc.Get: could not add job to cache: %w", err)
+		}
+	}
+
 	return job, nil
 }
 
 func (svc *JobService) GetAll() ([]*entity.Job, error) {
-	if svc.cache != nil {
-		jobs, err := svc.cache.GetAll()
-		if err != nil {
-			return nil, fmt.Errorf("jobSvc.GetAll: could not get jobs from cache: %w", err)
-		}
+	// if svc.cache != nil {
+	// 	jobs, err := svc.cache.GetAll()
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("jobSvc.GetAll: could not get jobs from cache: %w", err)
+	// 	}
 
-		if len(jobs) > 0 {
-			return jobs, nil
-		}
-	}
+	// 	if len(jobs) > 0 {
+	// 		return jobs, nil
+	// 	}
+	// }
 
 	jobs, err := svc.storage.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("jobSvc.GetAll: could not get jobs from storage: %w", err)
 	}
+
+	// if svc.cache != nil {
+	// 	for _, job := range jobs {
+	// 		err = svc.cache.Add(job)
+	// 		if err != nil {
+	// 			return nil, fmt.Errorf("jobSvc.GetAll: could not add job to cache: %w", err)
+	// 		}
+	// 	}
+	// }
 	return jobs, nil
 }
 

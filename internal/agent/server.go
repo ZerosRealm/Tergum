@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/egonelbre/antifreeze"
 	"github.com/gorilla/mux"
 	"zerosrealm.xyz/tergum/internal/agent/config"
 	"zerosrealm.xyz/tergum/internal/agent/manager"
@@ -87,6 +88,7 @@ func (srv *Server) Start() {
 	// Setting up signal capturing
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	antifreeze.Exclude()
 	<-stop
 	srv.log.Info("Shutting down")
 

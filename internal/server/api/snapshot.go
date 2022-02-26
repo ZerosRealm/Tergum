@@ -64,7 +64,7 @@ func (api *API) GetSnapshots(man *manager.Manager, resticExe *restic.Restic) htt
 				Type:  "getsnapshots",
 				Agent: agent,
 
-				Request: snapshotsReq,
+				Data: snapshotsReq,
 			}
 
 			body, err := man.SendRequest(jobRequest, agent)
@@ -140,7 +140,7 @@ func (api *API) DeleteSnapshot(man *manager.Manager, resticExe *restic.Restic) h
 				Type:  "deletesnapshot",
 				Agent: agent,
 
-				Request: snapshotsReq,
+				Data: snapshotsReq,
 			}
 
 			_, err := man.SendRequest(jobRequest, agent)
@@ -208,7 +208,7 @@ func (api *API) RestoreSnapshot(manager *manager.Manager) http.HandlerFunc {
 			Agent: agent,
 			// Repo:  repo,
 
-			Request: restoreReq,
+			Data: restoreReq,
 		}
 
 		job, err := manager.NewJob(jobRequest)
@@ -329,7 +329,7 @@ func (api *API) ListSnapshot(man *manager.Manager, resticExe *restic.Restic) htt
 				Type:  "list",
 				Agent: agent,
 
-				Request: snapshotsReq,
+				Data: snapshotsReq,
 			}
 
 			body, err := man.SendRequest(jobRequest, agent)

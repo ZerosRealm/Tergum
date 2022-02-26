@@ -77,8 +77,8 @@ func (svc *AgentService) GetAll() ([]*entity.Agent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("agentSvc.GetAll: could not get agents from storage: %w", err)
 	}
-	for _, agent := range agents {
-		if svc.cache != nil {
+	if svc.cache != nil {
+		for _, agent := range agents {
 			err = svc.cache.Add(agent)
 			if err != nil {
 				return nil, fmt.Errorf("agentSvc.GetAll: could not add agent to cache: %w", err)

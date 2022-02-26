@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	agentRequest "zerosrealm.xyz/tergum/internal/agent/api/request"
 	"zerosrealm.xyz/tergum/internal/entity"
@@ -55,7 +56,7 @@ func (api *API) StopJob(man *manager.Manager) http.HandlerFunc {
 			return
 		}
 
-		backupRequest := job.Request.(agentRequest.Backup)
+		backupRequest := job.Request.Data.(*agentRequest.Backup)
 		if backupRequest.ID == "" {
 			api.error(w, r, "No backup found with that ID.", fmt.Errorf("no backup found with that ID"), http.StatusNotFound)
 			return
@@ -93,7 +94,7 @@ func (api *API) StopJob(man *manager.Manager) http.HandlerFunc {
 				Type:  "stop",
 				Agent: agent,
 
-				Request: stopReq,
+				Data: stopReq,
 			}
 
 			_, err = man.SendRequest(jobRequest, agent)
@@ -120,7 +121,7 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 		authHeader := r.Header.Get("authorization")
 		auth := strings.SplitN(authHeader, " ", 2)
 		if len(auth) != 2 || strings.ToLower(auth[0]) != "psk" {
-			w.WriteHeader(http.StatusForbidden)
+			api.error(w, r, "Forbidden", fmt.Errorf("forbidden"), http.StatusForbidden)
 			return
 		}
 
@@ -134,7 +135,7 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 		}
 
 		if agents == nil {
-			w.WriteHeader(http.StatusForbidden)
+			api.error(w, r, "Forbidden", fmt.Errorf("forbidden"), http.StatusForbidden)
 			return
 		}
 
@@ -148,7 +149,7 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 		}
 
 		if !access {
-			w.WriteHeader(http.StatusForbidden)
+			api.error(w, r, "Forbidden", fmt.Errorf("forbidden"), http.StatusForbidden)
 			return
 		}
 
@@ -186,6 +187,8 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 			return
 		}
 
+		api.log.WithFields("method", r.Method, "path", r.URL.Path, "src", r.RemoteAddr).Debug("Websocket data:", spew.Sdump(wsResponse))
+
 		man.WriteWS([]byte(jobJSON))
 
 		if job.Done {
@@ -196,13 +199,13 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 			}
 
 			if !forgetPolicy.Enabled {
-				w.WriteHeader(http.StatusNoContent)
+				api.respond(w, r, nil, http.StatusNoContent)
 				return
 			}
 
-			backupRequest := job.Request.(agentRequest.Backup)
+			backupRequest := job.Request.Data.(*agentRequest.Backup)
 			if backupRequest.ID == "" {
-				api.error(w, r, "Running forget policy failed.", fmt.Errorf("Backup request is invalid"), http.StatusBadRequest)
+				api.error(w, r, "Running forget policy failed.", fmt.Errorf("backup request is invalid"), http.StatusBadRequest)
 				return
 			}
 
@@ -214,7 +217,7 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 				Type:  "forget",
 				Agent: authedAgent,
 
-				Request: forgetReq,
+				Data: forgetReq,
 			}
 
 			_, err = man.SendRequest(jobRequest, authedAgent)
@@ -224,7 +227,7 @@ func (api *API) JobProgress(man *manager.Manager, resticExe *restic.Restic) http
 			}
 		}
 
-		w.WriteHeader(http.StatusNoContent)
+		api.respond(w, r, nil, http.StatusNoContent)
 	}
 }
 

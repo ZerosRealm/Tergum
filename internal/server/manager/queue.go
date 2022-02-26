@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"zerosrealm.xyz/tergum/internal/entity"
 )
 
@@ -16,7 +17,7 @@ func (man *Manager) enqueue(job *entity.JobRequest) bool {
 }
 
 func (man *Manager) queueHandler() {
-	man.log.Debug("Starting queueHandler")
+	man.log.Debug("queueHandler: starting")
 	for {
 		select {
 		case <-man.ctx.Done():
@@ -27,7 +28,14 @@ func (man *Manager) queueHandler() {
 			if man.ctx.Err() != nil {
 				return
 			}
-			man.log.WithFields("job", job.ID).Debug("sending to", job.Agent.Name, "at", fmt.Sprintf("%s:%d", job.Agent.IP, job.Agent.Port))
+			man.log.WithFields("job", job.ID).Debug("Sending to", job.Agent.Name, "at", fmt.Sprintf("%s:%d", job.Agent.IP, job.Agent.Port))
+
+			man.log.WithFields("job", job.ID).Debug("Request:", spew.Sdump(job))
+			_, err := man.SendRequest(job, job.Agent)
+			if err != nil {
+				man.log.WithFields("job", job.ID).Error("Sending request returned error:", err)
+				return
+			}
 
 			// agentAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", job.Agent.IP, job.Agent.Port))
 			// if err != nil {

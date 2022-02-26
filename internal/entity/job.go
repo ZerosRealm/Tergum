@@ -10,7 +10,7 @@ type Job struct {
 	Done    bool   `json:"done"`
 	Aborted bool   `json:"aborted"`
 	// Packet   *JobPacket      `json:"-"`
-	Request  interface{}     `json:"-"`
+	Request  *JobRequest     `json:"-"`
 	Progress json.RawMessage `json:"progress"`
 
 	StartTime time.Time `json:"start_time"`
@@ -23,8 +23,8 @@ type JobRequest struct {
 	// Repo  *Repo
 	Agent *Agent
 
-	Type    string
-	Request interface{}
+	Type string
+	Data interface{}
 }
 
 // // BackupJob to send to an agent.
